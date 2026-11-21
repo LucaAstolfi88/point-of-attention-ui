@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>PointOfAttention.UI.Blazor</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Luca Astolfi</Authors>
+    <Description>
+      Blazor component wrapper for the PointOfAttention 3D point-of-attention
+      viewer engine. Provides modal-based defect selection on 3D models with
+      automatic snapshot report generation (top, front, isometric, left, right, back).
+    </Description>
+    <PackageTags>blazor;blazor-component;3d-viewer;threejs;defect-marking;point-of-attention;quality-control</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/LucaAstolfi88/point-of-attention-ui.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+    <Content Include="../core/src/point-of-attention-ui.css" Link="wwwroot/point-of-attention-ui.css" Pack="true" PackagePath="staticwebassets/" />
+    <Content Include="../core/dist/point-of-attention-ui.core.umd.js" Link="wwwroot/point-of-attention-ui.core.umd.js" Pack="true" PackagePath="staticwebassets/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

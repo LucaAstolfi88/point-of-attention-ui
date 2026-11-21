@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "outDir": "../../out-tsc/lib",
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "types": [],
+    "skipLibCheck": true,
+    "useDefineForClassFields": false,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": true
+  },
+  "files": ["src/public-api.ts"]
+}

@@ -1,7 +1,7 @@
 {
   "name": "@point-of-attention-ui/angular",
   "version": "1.0.0",
-  "description": "Angular wrapper for the Point of Attention 3D defect viewer (standalone, no ABP)",
+  "description": "Angular wrapper for the PointOfAttention 3D point-of-attention viewer (standalone, no ABP)",
   "module": "./dist/fesm2022/point-of-attention-ui-angular.mjs",
   "typings": "./dist/index.d.ts",
   "exports": {

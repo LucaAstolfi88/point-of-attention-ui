@@ -1,0 +1,6 @@
+{
+  "name": "PointOfAttention.UI.Blazor",
+  "version": "1.0.0",
+  "description": "Blazor (Razor Class Library) wrapper for the PointOfAttention 3D point-of-attention viewer",
+  "type": "module"
+}
