@@ -1,0 +1,203 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════════
+ * Point of Attention UI – Shared Modal Stylesheet
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * This stylesheet defines the look & feel of the selection modal that
+ * appears when the user clicks a mesh point on the 3D model.
+ *
+ * Every CSS property that controls color, spacing, radius, shadow or
+ * font is exposed as a CSS custom property (--wv-*) so you can override
+ * them at any level (root, wrapper component, or host application)
+ * without touching this file.
+ *
+ * Import this file once in your host app OR let each wrapper import it:
+ *
+ *   @import '@point-of-attention-ui/core/point-of-attention-ui.css';
+ *
+ * Then customize as needed:
+ *
+ *   :root {
+ *     --wv-backdrop-bg: rgba(0,0,0,0.55);
+ *     --wv-modal-bg: #fff;
+ *     --wv-modal-radius: 12px;
+ *     --wv-modal-shadow: 0 8px 30px rgba(0,0,0,0.18);
+ *     --wv-modal-padding: 24px;
+ *     --wv-modal-min-width: 280px;
+ *     --wv-modal-max-width: 380px;
+ *     --wv-title-color: #1a1a1a;
+ *     --wv-title-size: 18px;
+ *     --wv-subtitle-color: #888;
+ *     --wv-subtitle-size: 13px;
+ *     --wv-option-bg: #fff;
+ *     --wv-option-bg-hover: #f0f7ff;
+ *     --wv-option-border: #d9d9d9;
+ *     --wv-option-border-hover: #1890ff;
+ *     --wv-option-color: #333;
+ *     --wv-option-color-hover: #1890ff;
+ *     --wv-option-radius: 8px;
+ *     --wv-option-padding: 10px 14px;
+ *     --wv-option-font-size: 14px;
+ *     --wv-cancel-bg: #f5f5f5;
+ *     --wv-cancel-bg-hover: #ebebeb;
+ *     --wv-cancel-color: #666;
+ *     --wv-cancel-radius: 8px;
+ *     --wv-cancel-padding: 8px 14px;
+ *     --wv-cancel-font-size: 14px;
+ *     --wv-severity-info: #2196f3;
+ *     --wv-severity-warning: #ff9800;
+ *     --wv-severity-error: #f44336;
+ *     --wv-transition-speed: 0.2s;
+ *   }
+ */
+
+/* ── Backdrop ─────────────────────────────────────────────────────── */
+
+.warning-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wv-backdrop-bg, rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: wv-fade-in var(--wv-transition-speed, 0.2s) ease-out;
+}
+
+@keyframes wv-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Modal panel ──────────────────────────────────────────────────── */
+
+.warning-modal {
+  background: var(--wv-modal-bg, #ffffff);
+  border-radius: var(--wv-modal-radius, 12px);
+  box-shadow: var(--wv-modal-shadow, 0 8px 30px rgba(0, 0, 0, 0.15));
+  padding: var(--wv-modal-padding, 24px);
+  min-width: var(--wv-modal-min-width, 280px);
+  max-width: var(--wv-modal-max-width, 380px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  width: 90vw;
+  animation: wv-scale-in var(--wv-transition-speed, 0.2s) ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+@keyframes wv-scale-in {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ── Title & subtitle ─────────────────────────────────────────────── */
+
+.warning-modal-title {
+  margin: 0 0 4px;
+  font-size: var(--wv-title-size, 18px);
+  font-weight: 600;
+  color: var(--wv-title-color, #1a1a1a);
+  line-height: 1.4;
+}
+
+.warning-modal-subtitle {
+  display: block;
+  margin-bottom: 16px;
+  font-size: var(--wv-subtitle-size, 13px);
+  color: var(--wv-subtitle-color, #888);
+}
+
+/* ── Option list ──────────────────────────────────────────────────── */
+
+.warning-modal-options {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+.warning-modal-option {
+  margin-bottom: 8px;
+}
+
+.warning-modal-option:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Option button ────────────────────────────────────────────────── */
+
+.warning-modal-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: var(--wv-option-padding, 10px 14px);
+  border: 1px solid var(--wv-option-border, #d9d9d9);
+  border-radius: var(--wv-option-radius, 8px);
+  background: var(--wv-option-bg, #fff);
+  color: var(--wv-option-color, #333);
+  font-size: var(--wv-option-font-size, 14px);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--wv-transition-speed, 0.2s),
+    background var(--wv-transition-speed, 0.2s),
+    color var(--wv-transition-speed, 0.2s);
+}
+
+.warning-modal-option-btn:hover {
+  border-color: var(--wv-option-border-hover, #1890ff);
+  background: var(--wv-option-bg-hover, #f0f7ff);
+  color: var(--wv-option-color-hover, #1890ff);
+}
+
+.warning-modal-option-btn:active {
+  transform: scale(0.985);
+}
+
+/* Severity badge inside option button */
+.warning-modal-severity-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.warning-modal-severity-dot--info    { background: var(--wv-severity-info,    #2196f3); }
+.warning-modal-severity-dot--warning { background: var(--wv-severity-warning, #ff9800); }
+.warning-modal-severity-dot--error   { background: var(--wv-severity-error,   #f44336); }
+
+/* ── Cancel button ────────────────────────────────────────────────── */
+
+.warning-modal-cancel {
+  width: 100%;
+  padding: var(--wv-cancel-padding, 8px 14px);
+  border: 1px solid var(--wv-option-border, #d9d9d9);
+  border-radius: var(--wv-cancel-radius, 8px);
+  background: var(--wv-cancel-bg, #f5f5f5);
+  color: var(--wv-cancel-color, #666);
+  font-size: var(--wv-cancel-font-size, 14px);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background var(--wv-transition-speed, 0.2s),
+    color var(--wv-transition-speed, 0.2s);
+}
+
+.warning-modal-cancel:hover {
+  background: var(--wv-cancel-bg-hover, #ebebeb);
+  color: #333;
+}
+
+/* ── Viewport (3D canvas container) ───────────────────────────────── */
+
+.warning-viewer {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--wv-viewer-bg, #e1e2e2);
+}
