@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/*', develop]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Lint (placeholder) ───────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+        continue-on-error: true
+
+  # ── Core engine ───────────────────────────────────────────
+  build-core:
+    name: Build & Test @point-of-attention-ui/core
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm -w packages/core run build
+      - run: npm -w packages/core run build:umd
+      - name: Run core tests
+        run: npm -w packages/core run test
+      - name: Upload core artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dist
+          path: packages/core/dist/
+
+  # ── React wrapper ────────────────────────────────────────
+  build-react:
+    name: Build & Test @point-of-attention-ui/react
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Download core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: core-dist
+          path: packages/core/dist/
+      - run: npm -w packages/react run build
+      - name: Run React tests
+        run: npm -w packages/react run test
+
+  # ── Vue wrapper ──────────────────────────────────────────
+  build-vue:
+    name: Build & Test @point-of-attention-ui/vue
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Download core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: core-dist
+          path: packages/core/dist/
+      - run: npm -w packages/vue run build
+      - name: Run Vue tests
+        run: npm -w packages/vue run test
+
+  # ── Angular wrapper ──────────────────────────────────────
+  build-angular:
+    name: Build @point-of-attention-ui/angular
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Download core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: core-dist
+          path: packages/core/dist/
+      - run: npm -w packages/angular run build
+
+  # ── Blazor NuGet package ─────────────────────────────────
+  build-blazor:
+    name: Build PointOfAttention.UI.Blazor
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Download core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: core-dist
+          path: packages/core/dist/
+      - run: dotnet build packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release
+      - run: dotnet pack packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release -o artifacts/nuget --no-build
+      - name: Upload NuGet artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blazor-nuget
+          path: artifacts/nuget/
+
+  # ── Root scripts (smoke test) ────────────────────────────
+  smoke-test:
+    name: Root scripts smoke test
+    runs-on: ubuntu-latest
+    needs: [build-core, build-react, build-vue]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build:core
+      - run: npm run lint
+        continue-on-error: true

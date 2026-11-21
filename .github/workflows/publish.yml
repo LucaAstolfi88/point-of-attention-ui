@@ -1,0 +1,92 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  # ── npm packages ─────────────────────────────────────────
+  publish-npm:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm -w packages/core run build && npm -w packages/core run build:umd
+      - run: npm -w packages/core run test
+      - run: npm -w packages/react run build
+      - run: npm -w packages/vue run build
+      - name: Pack @point-of-attention-ui/core release artifact
+        run: |
+          mkdir -p artifacts/npm
+          npm pack packages/core --pack-destination artifacts/npm
+      - name: Upload @point-of-attention-ui/core artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: point-of-attention-ui-core-npm
+          path: artifacts/npm/*.tgz
+          if-no-files-found: error
+      - name: Publish @point-of-attention-ui/core
+        run: npm publish --provenance --access public
+        working-directory: packages/core
+      - name: Publish @point-of-attention-ui/react
+        run: npm publish --provenance --access public
+        working-directory: packages/react
+      - name: Publish @point-of-attention-ui/vue
+        run: npm publish --provenance --access public
+        working-directory: packages/vue
+
+  # ── NuGet package (Blazor) ───────────────────────────────
+  publish-nuget:
+    name: Publish NuGet package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pack
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          dotnet pack packages/blazor/PointOfAttention.UI.Blazor.csproj \
+            -c Release \
+            -o artifacts/nuget \
+            -p:Version=$VERSION
+      - name: Push to NuGet
+        run: |
+          dotnet nuget push artifacts/nuget/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --skip-duplicate
+
+  # ── GitHub Release ───────────────────────────────────────
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [publish-npm, publish-nuget]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download @point-of-attention-ui/core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: point-of-attention-ui-core-npm
+          path: artifacts/npm
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          artifacts: artifacts/npm/*.tgz
+          bodyFile: packages/core/CHANGELOG.md
+          generateReleaseNotes: true
+          makeLatest: true
