@@ -1,7 +1,7 @@
 {
   "name": "@point-of-attention-ui/react",
   "version": "1.0.0",
-  "description": "React wrapper for the Point of Attention 3D defect viewer",
+  "description": "React wrapper for the PointOfAttention 3D point-of-attention viewer",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
