@@ -1,0 +1,319 @@
+@page "/"
+@using PointOfAttention.UI.Blazor
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Point of Attention Blazor Demo</PageTitle>
+<link rel="stylesheet" href="css/app.css" />
+<header><h1>Point of Attention — @(ModelUrl is null ? "Demo" : ActiveLabel) <span>Blazor</span></h1></header>
+<div class="workspace">
+<aside class="scenario-menu @(ScenarioMenuOpen ? null : "collapsed")">
+    <button class="menu-collapse-btn" type="button"
+            aria-expanded="@ScenarioMenuOpen"
+            aria-label="@(ScenarioMenuOpen ? "Collapse scenario menu" : "Expand scenario menu")"
+            @onclick="() => ScenarioMenuOpen = !ScenarioMenuOpen">@(ScenarioMenuOpen ? "‹" : "›")</button>
+    @if (ScenarioMenuOpen)
+    {
+    <div class="scenario-menu-content">
+    <h2>Demo scenarios</h2>
+    @foreach (var asset in Models)
+    {
+        <details open>
+            <summary>@asset.Label</summary>
+            @foreach (var item in asset.Scenarios ?? [])
+            {
+                <button class="@(ActiveLabel == $"{asset.Label} — {item.Label}" ? "active" : null)"
+                        @onclick="() => StartDemo(asset, item)">
+                    @item.Label
+                    @if (!string.IsNullOrEmpty(item.Badge)) { <small>@item.Badge</small> }
+                </button>
+            }
+        </details>
+    }
+    <details open>
+        <summary>Custom model</summary>
+        <label class="upload-button">Upload new model <InputFile accept=".glb,.gltf" OnChange="SelectFile" /></label>
+        @if (File is not null) { <button @onclick="StartUploadedDemo">Open @File.Name</button> }
+    </details>
+    @if (Error is not null && ModelUrl is null) { <p role="alert">@Error</p> }
+    </div>
+    }
+</aside>
+@if (ModelUrl is not null)
+{
+<div class="workspace-content">
+<nav>
+    <button @onclick="() => ShowDetails = !ShowDetails">@(ShowDetails ? "Hide details" : "Show details")</button>
+    <button @onclick="ChangeDemo">Change demo</button>
+    @foreach (var view in CameraViews)
+    {
+        <button @onclick="() => SetCameraView(view)">@view</button>
+    }
+    <button @onclick="ZoomToFit">Zoom Fit</button>
+    <button @onclick="Undo">Undo</button>
+    <button @onclick="Redo">Redo</button>
+    <button @onclick="ClearAll">Clear All</button>
+    <button @onclick='() => SetPage("viewer")'>Inspection</button>
+    <button @onclick='() => SetPage("analytics")'>Analytics</button>
+    <span>Defects: @Defects.Count · Parts: @Parts.Count</span>
+</nav>
+<main>
+    <section class="viewer">
+        <WarningViewer @ref="Viewer" ModelUrl="@ModelUrl" Defects="Defects" PartsVisibility="PartsVisibility"
+                       SelectionOptions="SelectionOptions" Locale="Locale"
+                       DefectsChanged="OnDefectsChanged" ModelLoaded="OnModelLoaded"
+                       SnapshotReport="OnSnapshotReport" ModelLoadError="OnModelLoadError" />
+    </section>
+    @if (ShowDetails && Page == "viewer")
+    {
+    <aside class="viewer-details">
+        @if (Error is not null) { <p role="alert">@Error</p> }
+        <h2>Parts Visibility</h2>
+        @foreach (var part in Parts)
+        {
+            <label><input type="checkbox" checked="@Visible(part.Name)" @onchange="e => TogglePart(part.Name, (bool)e.Value!)" /> @part.Name</label>
+        }
+        <h2>Defects (@Defects.Count)</h2>
+        @if (Defects.Count == 0)
+        {
+            <p>Click on the model to add defects.</p>
+        }
+        <ul>
+            @foreach (var defect in Defects)
+            {
+                <li>@(defect.Metadata?.GetValueOrDefault("optionLabel")?.ToString() ?? defect.Label) — @defect.MeshName <button @onclick="() => RemoveDefect(defect.Id)">Remove</button></li>
+            }
+        </ul>
+        <h2>Snapshots (@Reports.Count)</h2>
+        @foreach (var report in Reports)
+        {
+            <div class="report">
+                @foreach (var image in report.Images)
+                {
+                    <img src="@image.DataUri" alt="@image.View" />
+                }
+            </div>
+        }
+    </aside>
+    }
+    @if (Page == "analytics")
+    {
+    <aside class="analytics-panel">
+        <div class="analytics-summary"><span>Total warnings</span><strong>@Defects.Count</strong><small>@ComponentStats.Count affected components</small></div>
+        <h2>Warnings by type</h2>
+        @if (TypeStats.Count == 0) { <p>No warnings recorded.</p> }
+        @foreach (var item in TypeStats)
+        {
+            <div class="stat-row">
+                <div><span>@item.Label</span><strong>@item.Count</strong></div>
+                <div class="stat-track"><span style="width:@(item.Count / (double)MaxCount(TypeStats) * 100)%"></span></div>
+            </div>
+        }
+        <h2>Surface heat map</h2>
+        <div class="heat-legend"><span>Low</span><i></i><span>High</span></div>
+        @foreach (var item in ComponentStats)
+        {
+            <div class="heat-row"><span>@item.Label</span><strong>@item.Count</strong></div>
+        }
+    </aside>
+    }
+</main>
+</div>
+}
+else
+{
+    <main class="demo-setup">
+        <h2>Inspection workspace</h2>
+        <p>Select a preset scenario from the left menu or upload a GLB model.</p>
+    </main>
+}
+</div>
+
+@code {
+    private string? ModelUrl;
+    private string Model = "";
+    private string ActiveLabel = "Demo";
+    private string Page = "viewer";
+    private int PendingWarningCount;
+    private string? ActiveModelId;
+    private bool RetryingModelFallback;
+    private string? Error;
+    private IBrowserFile? File;
+    private IJSObjectReference? DemoModule;
+    private readonly string[] CameraViews = ["Front", "Back", "Left", "Right", "Top", "Bottom"];
+    private readonly ViewerLocale Locale = new() { ModalTitle = "Select defect", ModalPartLabel = "Part:", ModalCancel = "Cancel" };
+    private readonly List<SelectionOption> SelectionOptions =
+    [
+        new() { Id = "scratch", Label = "Scratch", Severity = "warning" },
+        new() { Id = "dent", Label = "Dent", Severity = "error" },
+        new() { Id = "rust", Label = "Rust", Severity = "error" },
+        new() { Id = "crack", Label = "Crack", Severity = "error" },
+        new() { Id = "misalignment", Label = "Misalignment", Severity = "info" },
+    ];
+    private readonly List<WarningDefect> Defects = new();
+    private List<ModelPartVisibility> PartsVisibility = new();
+    private List<ViewerPart> Parts = new();
+    private List<SnapshotReport> Reports = new();
+    private WarningViewer? Viewer;
+    private bool ShowDetails = true;
+    private bool ScenarioMenuOpen = true;
+    private List<ModelAsset> Models = [];
+    private List<Statistic> TypeStats => AggregateDefects(true);
+    private List<Statistic> ComponentStats => AggregateDefects(false).OrderByDescending(item => item.Count).ToList();
+
+    private void SelectFile(InputFileChangeEventArgs args) => File = args.File;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Models = await Http.GetFromJsonAsync<List<ModelAsset>>("assets/models.json")
+                ?? throw new InvalidOperationException("The model library is empty.");
+            Model = Models.FirstOrDefault()?.Id ?? "";
+        }
+        catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            Error = $"Could not load models: {ex.Message}";
+        }
+    }
+
+    private async Task StartDemo(ModelAsset asset, ModelScenario demoScenario)
+    {
+        Error = null;
+        try
+        {
+            var initial = new List<WarningDefect>();
+            if (demoScenario.Id == "preset")
+            {
+                var scenarios = await Http.GetFromJsonAsync<Dictionary<string, List<WarningDefect>>>("assets/scenarios.json");
+                if (scenarios is not null && scenarios.TryGetValue(asset.Id, out var preset)) initial = preset;
+            }
+            PendingWarningCount = initial.Count == 0 ? (demoScenario.WarningCount ?? 0) : 0;
+            var nextUrl = BuildModelUrl(asset.Id, useAssetsPrefix: true);
+            var reuseEngine = nextUrl == ModelUrl;
+            Reports.Clear();
+            Defects.Clear();
+            Defects.AddRange(initial);
+            if (reuseEngine && Viewer is not null)
+            {
+                await Viewer.SetDefectsAsync(initial);
+                if (PendingWarningCount > 0)
+                {
+                    await Viewer.AddDistributedWarningsAsync(PendingWarningCount);
+                    PendingWarningCount = 0;
+                }
+            }
+            if (!reuseEngine)
+            {
+                Parts.Clear();
+                PartsVisibility.Clear();
+            }
+            Model = asset.Id;
+            ActiveModelId = asset.Id;
+            RetryingModelFallback = false;
+            Page = "viewer";
+            ActiveLabel = $"{asset.Label} — {demoScenario.Label}";
+            ModelUrl = nextUrl;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or JSException or System.Text.Json.JsonException)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    private async Task StartUploadedDemo()
+    {
+        if (File is null) { Error = "Choose a GLB file first."; return; }
+        await using var stream = File.OpenReadStream(100 * 1024 * 1024);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer);
+        DemoModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./demo.js");
+        PendingWarningCount = 0;
+        ActiveModelId = null;
+        RetryingModelFallback = false;
+        Defects.Clear();
+        Parts.Clear();
+        PartsVisibility.Clear();
+        Reports.Clear();
+        Page = "viewer";
+        ActiveLabel = $"{File.Name} — Uploaded model";
+        ModelUrl = await DemoModule.InvokeAsync<string>("createModelUrl", buffer.ToArray());
+    }
+
+    private async Task ChangeDemo()
+    {
+        var oldUrl = ModelUrl;
+        ModelUrl = null;
+        ActiveModelId = null;
+        RetryingModelFallback = false;
+        Error = null;
+        Page = "viewer";
+        if (oldUrl?.StartsWith("blob:", StringComparison.Ordinal) == true && DemoModule is not null)
+            await DemoModule.InvokeVoidAsync("revokeModelUrl", oldUrl);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await ChangeDemo();
+        if (DemoModule is not null) await DemoModule.DisposeAsync();
+    }
+
+    private Task OnDefectsChanged(List<WarningDefect> defects) { Defects.Clear(); Defects.AddRange(defects); return Task.CompletedTask; }
+    private async Task OnModelLoaded(List<ViewerPart> parts)
+    {
+        Parts = parts;
+        PartsVisibility = parts.Select(part => new ModelPartVisibility { MeshName = part.Name, Visible = true }).ToList();
+        if (PendingWarningCount > 0 && Viewer is not null)
+        {
+            await Viewer.AddDistributedWarningsAsync(PendingWarningCount);
+            PendingWarningCount = 0;
+        }
+    }
+    private Task OnSnapshotReport(SnapshotReport report) { Reports.Clear(); Reports.Add(report); return Task.CompletedTask; }
+    private Task OnModelLoadError(string error)
+    {
+        if (ActiveModelId is not null && !RetryingModelFallback && ModelUrl == BuildModelUrl(ActiveModelId, useAssetsPrefix: true))
+        {
+            RetryingModelFallback = true;
+            Error = null;
+            ModelUrl = BuildModelUrl(ActiveModelId, useAssetsPrefix: false);
+            return Task.CompletedTask;
+        }
+        Error = $"Failed to load model: {error}";
+        return Task.CompletedTask;
+    }
+    private bool Visible(string name) => PartsVisibility.FirstOrDefault(part => part.MeshName == name)?.Visible ?? true;
+    private void TogglePart(string name, bool visible) { var part = PartsVisibility.FirstOrDefault(part => part.MeshName == name); if (part is not null) part.Visible = visible; }
+    private async Task SetCameraView(string direction) { if (Viewer is not null) await Viewer.SetCameraViewAsync(direction); }
+    private async Task ZoomToFit() { if (Viewer is not null) await Viewer.ZoomToFitAsync(); }
+    private async Task Undo() { if (Viewer is not null) await Viewer.UndoAsync(); }
+    private async Task Redo() { if (Viewer is not null) await Viewer.RedoAsync(); }
+    private async Task ClearAll() { if (Viewer is not null) await Viewer.ClearAllDefectsAsync(); }
+    private void RemoveDefect(string id) { Defects.RemoveAll(defect => defect.Id == id); }
+    private async Task SetPage(string page)
+    {
+        Page = page;
+        if (Viewer is not null) await Viewer.SetHeatMapAsync(page == "analytics");
+    }
+    private static int MaxCount(List<Statistic> items) => Math.Max(1, items.Select(item => item.Count).DefaultIfEmpty().Max());
+    private static string BuildModelUrl(string modelId, bool useAssetsPrefix)
+    {
+        var prefix = useAssetsPrefix ? "assets/models" : "models";
+        return $"{prefix}/{modelId}.glb";
+    }
+    private List<Statistic> AggregateDefects(bool byType)
+    {
+        return Defects.GroupBy(defect => byType
+                ? defect.Metadata?.GetValueOrDefault("optionLabel")?.ToString() ?? defect.Label ?? "Unclassified"
+                : defect.MeshName ?? "Unassigned")
+            .Select(group => new Statistic(group.Key, group.Count()))
+            .ToList();
+    }
+
+    private sealed record ModelScenario(string Id, string Label, string? Badge, int? WarningCount);
+    private sealed record ModelAsset(string Id, string Label, bool HasPreset, List<ModelScenario>? Scenarios);
+    private sealed record Statistic(string Label, int Count);
+}
