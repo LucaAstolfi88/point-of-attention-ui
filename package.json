@@ -1,0 +1,29 @@
+{
+  "name": "point-of-attention-ui-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monorepo for Point of Attention UI — framework-agnostic 3D defect viewer (React, Vue, Angular, Blazor)",
+  "workspaces": [
+    "packages/core",
+    "packages/react",
+    "packages/vue",
+    "packages/angular",
+    "demos/react",
+    "demos/vue",
+    "demos/angular"
+  ],
+  "scripts": {
+    "build": "npm run build:core && npm run build:react && npm run build:vue && npm run build:angular",
+    "build:core": "npm -w packages/core run build && npm -w packages/core run build:umd",
+    "build:react": "npm -w packages/react run build",
+    "build:vue": "npm -w packages/vue run build",
+    "build:angular": "npm -w demos/angular run build",
+    "build:blazor": "npm run build:core && dotnet build packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release",
+    "pack": "npm -w packages/core pack && npm -w packages/react pack && npm -w packages/vue pack && npm -w packages/angular pack",
+    "pack:blazor": "npm run build:core && dotnet pack packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release -o ./artifacts/nuget",
+    "test": "npm -w packages/core test && npm -w packages/react test && npm -w packages/vue test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

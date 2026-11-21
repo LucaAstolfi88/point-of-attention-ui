@@ -1,0 +1,44 @@
+{
+  "name": "@point-of-attention-ui/vue",
+  "version": "1.0.0",
+  "description": "Vue 3 wrapper for the Point of Attention 3D defect viewer",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "vite build && vue-tsc --emitDeclarationOnly --declaration --outDir dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "vue": ">=3.3"
+  },
+  "dependencies": {
+    "@point-of-attention-ui/core": "1.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vue/test-utils": "^2.4.0",
+    "jsdom": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.6.0",
+    "vue": "^3.4.0",
+    "vue-tsc": "^2.0.0"
+  },
+  "keywords": ["vue", "vue3", "3d-viewer", "defect-marking", "point-of-attention"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LucaAstolfi88/point-of-attention-ui.git",
+    "directory": "packages/vue"
+  }
+}

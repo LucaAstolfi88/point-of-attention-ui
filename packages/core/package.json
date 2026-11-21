@@ -1,0 +1,58 @@
+{
+  "name": "@point-of-attention-ui/core",
+  "version": "1.0.0",
+  "description": "Framework-agnostic 3D defect viewer engine based on Three.js",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/point-of-attention-ui.core.umd.js"
+    },
+    "./point-of-attention-ui.css": "./dist/point-of-attention-ui.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "*.css",
+    "dist/point-of-attention-ui.css"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && shx cp src/point-of-attention-ui.css dist/point-of-attention-ui.css",
+    "build:umd": "rollup -c",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@types/three": "^0.160.0",
+    "rollup": "^4.18.0",
+    "shx": "^0.3.4",
+    "three": "^0.160.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "threejs",
+    "3d-viewer",
+    "defect-marking",
+    "point-of-attention",
+    "visual-inspection"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LucaAstolfi88/point-of-attention-ui.git",
+    "directory": "packages/core"
+  }
+}
