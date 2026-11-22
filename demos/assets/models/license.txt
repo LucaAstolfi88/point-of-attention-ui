@@ -1,0 +1,8 @@
+Model Information:
+* title:	Watch
+* source:	https://sketchfab.com/3d-models/watch-82f07e03b4b448efb5dfac291e456fa0
+* author:	powers28 (https://sketchfab.com/powers28)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
