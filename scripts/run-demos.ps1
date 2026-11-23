@@ -75,6 +75,10 @@ function Resolve-Npm {
         }
     }
     if ($npmHealthy) {
+        $npmDirectory = Split-Path $npm -Parent
+        if (($env:PATH -split ';') -notcontains $npmDirectory) {
+            $env:PATH = "$npmDirectory;$env:PATH"
+        }
         return $npm
     }
 
@@ -184,10 +188,11 @@ function Start-Demo {
     )
 
     $shell = (Get-Process -Id $PID).Path
+    $resolvedCommand = $ShellCommand.Replace('npm ', "& '$script:npm' ")
     Start-Process `
         -FilePath $shell `
         -WorkingDirectory $root `
-        -ArgumentList @('-NoExit', '-Command', $ShellCommand) | Out-Null
+        -ArgumentList @('-NoExit', '-Command', $resolvedCommand) | Out-Null
 
     $launches.Add([pscustomobject]@{
             Name = $Name
@@ -198,6 +203,7 @@ function Start-Demo {
 Push-Location $root
 try {
     $npm = Resolve-Npm
+    $script:npm = $npm
 
     $requiredCommands = [System.Collections.Generic.List[string]]::new()
     $requiredCommands.Add('tsc')
