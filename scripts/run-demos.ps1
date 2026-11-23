@@ -57,6 +57,7 @@ function Test-Tool {
 }
 
 function Resolve-Npm {
+    $nodeExecutable = Test-Tool 'node'
     $npm = Test-Tool 'npm'
     & $npm '--version' *> $null
     $npmHealthy = $LASTEXITCODE -eq 0
@@ -100,14 +101,15 @@ function Resolve-Npm {
             }
 
             $npmCli = Join-Path $toolRoot 'bin\npm-cli.js'
-            Set-Content -LiteralPath $npmCommand -Value "@echo off`r`nnode `"$npmCli`" %*"
+            Set-Content -LiteralPath $npmCommand -Value "@echo off`r`n`"$nodeExecutable`" `"$npmCli`" %*"
         }
         finally {
             Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
         }
     }
 
-    $env:PATH = "$toolRoot;$env:PATH"
+    $nodeDirectory = Split-Path $nodeExecutable -Parent
+    $env:PATH = "$toolRoot;$nodeDirectory;$env:PATH"
     & $npmCommand '--version' *> $null
     if ($LASTEXITCODE -ne 0) {
         throw "The temporary npm installation is not usable."
@@ -189,6 +191,9 @@ function Start-Demo {
 
     $shell = (Get-Process -Id $PID).Path
     $resolvedCommand = $ShellCommand.Replace('npm ', "& '$script:npm' ")
+    if ($script:dotnet) {
+        $resolvedCommand = $resolvedCommand.Replace('dotnet ', "& '$script:dotnet' ")
+    }
     Start-Process `
         -FilePath $shell `
         -WorkingDirectory $root `
@@ -238,6 +243,7 @@ try {
     $dotnet = $null
     if ($needsDotnet) {
         $dotnet = Test-Tool 'dotnet'
+        $script:dotnet = $dotnet
         if (-not $SkipInstall) {
             Invoke-Step -Name 'Restore Blazor dependencies' -Command $dotnet -Arguments @(
                 'restore',
@@ -328,16 +334,18 @@ try {
     if ($coreReady -and $selected.Contains('Blazor') -and $dotnet) {
         $ready = Invoke-BuildAndTest -Name 'Blazor' `
             -Build {
-                Invoke-Step -Name 'Build Blazor wrapper and demo' -Command $dotnet -Arguments @(
-                    'build',
+                Invoke-Step -Name 'Publish Blazor wrapper and demo' -Command $dotnet -Arguments @(
+                    'publish',
                     'demos/blazor/BlazorDemo.csproj',
                     '-c',
-                    'Release'
+                    'Release',
+                    '-o',
+                    'demos/blazor/publish'
                 )
             }
         if ($ready -and -not $NoStart) {
             Start-Demo -Name 'Blazor' -Url "http://127.0.0.1:$BlazorPort/" `
-                -ShellCommand "dotnet run --project demos/blazor/BlazorDemo.csproj --urls http://127.0.0.1:$BlazorPort"
+                -ShellCommand "npm exec -- vite preview --outDir demos/blazor/publish/wwwroot --host 127.0.0.1 --port $BlazorPort --strictPort"
         }
     }
 }

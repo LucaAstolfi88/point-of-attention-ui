@@ -666,6 +666,9 @@ export class WarningViewerEngine {
     loader.load(
       url,
       gltf => {
+        // Ignore late loads from a disposed engine (e.g. React StrictMode
+        // double-mount) or from a superseded model URL.
+        if (this.disposed || url !== this.options.modelUrl) return;
         this.clearHeatMapDecals();
         if (this.componentGroup) {
           this.componentGroup.traverse(obj => {
@@ -700,6 +703,7 @@ export class WarningViewerEngine {
       },
       undefined,
       error => {
+        if (this.disposed || url !== this.options.modelUrl) return;
         this.isLoading = false;
         this.options.onModelLoadError?.(error);
       }

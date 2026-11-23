@@ -1,1 +1,44 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build output (JS/TS)
+dist/
+*.tsbuildinfo
+.vite/
+
+# Angular
+.angular/
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+publish/
+artifacts/
+*.nupkg
+*.snupkg
+
+# Packaging
+*.tgz
+
+# Assembled demo site / deploy output
+demo-site/
+gh-pages-output/
+
+# Tests / coverage
+coverage/
+[Tt]est[Rr]esult*/
+
+# Logs & temp
+*.log
+npm-debug.log*
+tmp/
+temp/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db

@@ -1,0 +1,134 @@
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<link rel="stylesheet" href="_content/PointOfAttention.UI.Blazor/point-of-attention-ui.css" />
+<div class="warning-viewer" style="width:100%;height:100%;position:relative" @ref="_container"></div>
+
+@if (_selection is not null)
+{
+    <div class="warning-modal-backdrop" role="dialog" aria-modal="true" @onclick="CancelSelectionAsync">
+        <div class="warning-modal" @onclick:stopPropagation="true">
+            <h3 class="warning-modal-title">@Locale?.ModalTitle</h3>
+            @if (!string.IsNullOrEmpty(_selection.MeshName))
+            {
+                <p>@Locale?.ModalPartLabel @_selection.MeshName</p>
+            }
+            <div class="warning-modal-options">
+                @foreach (var option in _selection.Options)
+                {
+                    <button type="button" @onclick="() => ConfirmSelectionAsync(option)">@option.Label</button>
+                }
+            </div>
+            <button type="button" class="warning-modal-cancel" @onclick="CancelSelectionAsync">
+                @Locale?.ModalCancel
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ModelUrl { get; set; } = string.Empty;
+    [Parameter] public List<WarningDefect> Defects { get; set; } = [];
+    [Parameter] public List<ModelPartVisibility> PartsVisibility { get; set; } = [];
+    [Parameter] public List<SelectionOption> SelectionOptions { get; set; } = [];
+    [Parameter] public ViewerLocale Locale { get; set; } = new();
+    [Parameter] public EventCallback<List<WarningDefect>> DefectsChanged { get; set; }
+    [Parameter] public EventCallback<List<ViewerPart>> ModelLoaded { get; set; }
+    [Parameter] public EventCallback<string> ModelLoadError { get; set; }
+    [Parameter] public EventCallback<SnapshotReport> SnapshotReport { get; set; }
+
+    private ElementReference _container;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<WarningViewer>? _reference;
+    private SelectionRequest? _selection;
+    private bool _initialized;
+    private string _modelUrl = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/PointOfAttention.UI.Blazor/warning-viewer.js");
+            _reference = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("initialize", _container, ModelUrl, Defects, PartsVisibility, SelectionOptions, _reference);
+            _modelUrl = ModelUrl;
+            _initialized = true;
+        }
+        else if (_initialized && _modelUrl != ModelUrl)
+        {
+            _modelUrl = ModelUrl;
+            await SetModelUrlAsync(ModelUrl);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized) return;
+        var module = _module ?? throw new InvalidOperationException("The viewer module is not initialized.");
+        await module.InvokeVoidAsync("setDefects", _container, Defects);
+        await module.InvokeVoidAsync("setPartsVisibility", _container, PartsVisibility);
+        await module.InvokeVoidAsync("setSelectionOptions", _container, SelectionOptions);
+    }
+
+    [JSInvokable] public async Task OnSelectionRequested(SelectionRequest request)
+    {
+        _selection = request;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable] public async Task OnDefectsChanged(List<WarningDefect> defects) =>
+        await DefectsChanged.InvokeAsync(defects);
+
+    [JSInvokable] public async Task OnModelLoaded(List<ViewerPart> parts) =>
+        await ModelLoaded.InvokeAsync(parts);
+
+    [JSInvokable] public async Task OnModelLoadError(string error) =>
+        await ModelLoadError.InvokeAsync(error);
+
+    [JSInvokable] public async Task OnSnapshotReport(SnapshotReport report) =>
+        await SnapshotReport.InvokeAsync(report);
+
+    private async Task ConfirmSelectionAsync(SelectionOption option)
+    {
+        await _module!.InvokeVoidAsync("addWarning", _container, option);
+        _selection = null;
+    }
+
+    private async Task CancelSelectionAsync()
+    {
+        await _module!.InvokeVoidAsync("cancelSelection", _container);
+        _selection = null;
+    }
+
+    public Task SetDefectsAsync(List<WarningDefect> defects) =>
+        _module?.InvokeVoidAsync("setDefects", _container, defects).AsTask() ?? Task.CompletedTask;
+    public Task AddDistributedWarningsAsync(int count) =>
+        _module?.InvokeVoidAsync("addDistributedWarnings", _container, count).AsTask() ?? Task.CompletedTask;
+    public Task SetCameraViewAsync(string view) =>
+        _module?.InvokeVoidAsync("setCameraView", _container, view).AsTask() ?? Task.CompletedTask;
+    public Task ZoomToFitAsync() =>
+        _module?.InvokeVoidAsync("zoomToFit", _container).AsTask() ?? Task.CompletedTask;
+    public Task UndoAsync() =>
+        _module?.InvokeVoidAsync("undo", _container).AsTask() ?? Task.CompletedTask;
+    public Task RedoAsync() =>
+        _module?.InvokeVoidAsync("redo", _container).AsTask() ?? Task.CompletedTask;
+    public Task ClearAllDefectsAsync() =>
+        _module?.InvokeVoidAsync("clearAllDefects", _container).AsTask() ?? Task.CompletedTask;
+    public Task SetHeatMapAsync(bool enabled) =>
+        _module?.InvokeVoidAsync("setHeatMap", _container, enabled).AsTask() ?? Task.CompletedTask;
+    private Task SetModelUrlAsync(string url) =>
+        _module?.InvokeVoidAsync("setModelUrl", _container, url).AsTask() ?? Task.CompletedTask;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("dispose", _container);
+            await _module.DisposeAsync();
+        }
+        _reference?.Dispose();
+    }
+}
