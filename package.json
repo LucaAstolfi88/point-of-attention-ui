@@ -19,6 +19,7 @@
     "build:vue": "npm -w packages/vue run build",
     "build:angular": "npm -w demos/angular run build",
     "build:blazor": "npm run build:core && dotnet build packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release",
+    "demos": "powershell -ExecutionPolicy Bypass -File scripts/run-demos.ps1",
     "pack": "npm -w packages/core pack && npm -w packages/react pack && npm -w packages/vue pack && npm -w packages/angular pack",
     "pack:blazor": "npm run build:core && dotnet pack packages/blazor/PointOfAttention.UI.Blazor.csproj -c Release -o ./artifacts/nuget",
     "test": "npm -w packages/core test && npm -w packages/react test && npm -w packages/vue test"

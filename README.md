@@ -26,3 +26,27 @@ npm run build
 npm test
 npm run pack
 ```
+
+## Build, test e avvio delle demo
+
+Da PowerShell, eseguire:
+
+```powershell
+.\scripts\run-demos.ps1
+```
+
+Il comando installa le dipendenze, compila il core e gli stack selezionati, esegue i test e avvia ogni demo in una finestra separata. React, Vue, Angular e Blazor usano rispettivamente le porte 4173, 4174, 4200 e 5175.
+
+Per limitare gli stack o saltare singole fasi:
+
+```powershell
+.\scripts\run-demos.ps1 -Stack React,Vue
+.\scripts\run-demos.ps1 -SkipInstall -SkipTests
+.\scripts\run-demos.ps1 -NoStart
+```
+
+Equivalente tramite npm:
+
+```powershell
+npm run demos
+```
