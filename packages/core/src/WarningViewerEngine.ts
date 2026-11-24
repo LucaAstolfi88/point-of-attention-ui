@@ -939,7 +939,14 @@ export class WarningViewerEngine {
     this.pointerDownPos = null;
     this.activePointerId = null;
     this.isDragging = false;
-    if (!wasDragging) { this.handleTap(event.clientX, event.clientY); }
+    if (!wasDragging) { 
+      // Prevent synthetic click/mouse events that can cause ghost clicks
+      // on modal options that appear under the finger
+      if (event.pointerType === 'touch') {
+        event.preventDefault();
+      }
+      this.handleTap(event.clientX, event.clientY); 
+    }
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {

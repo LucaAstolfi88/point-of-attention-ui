@@ -102,6 +102,9 @@ const MODEL_LIBRARY = modelLibrary as DemoModel[];
     </div>
   `,
   styles: [`
+    /* Import shared demo shell styles */
+    @import '../../../assets/demo-shell.css';
+    
     :host { display:flex; height:100vh; flex-direction:column; background:#1a1a2e; color:#e0e0e0; font:14px Arial,sans-serif }
     header, nav { padding:12px 20px; background:#16213e } h1 { margin:0; font-size:20px } h1 span { color:#dd0031; font-size:14px }
     nav { display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:#0f3460 }

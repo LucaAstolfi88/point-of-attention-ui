@@ -391,6 +391,9 @@ watch([page, activeUrl], () => {
 </template>
 
 <style>
+/* Import shared demo shell styles */
+@import '../../assets/demo-shell.css';
+
 /* ── Reset & base ── */
 *,
 *::before,
