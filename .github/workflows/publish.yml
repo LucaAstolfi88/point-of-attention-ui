@@ -19,7 +19,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
+      - name: Clean install dependencies to avoid Rollup optional dependency issues
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --prefer-offline --no-audit --no-fund
       - run: npm -w packages/core run build && npm -w packages/core run build:umd
       - run: npm -w packages/core run test
       - run: npm -w packages/react run build
