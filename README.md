@@ -2,6 +2,8 @@
 
 Libreria componenti standalone per il visualizzatore 3D dei difetti (*Point of Attention*), distribuita come package indipendenti per ciascun framework.
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-orange?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/lucaastolfi88)
+
 ## Package
 
 | Pacchetto | Ecosystem | Tipo | Nome pubblicato |
