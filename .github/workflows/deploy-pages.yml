@@ -7,7 +7,9 @@ on:
 
 concurrency:
   group: github-pages
-  cancel-in-progress: true
+  # Never cancel a deployment that is already running: cancelling mid-upload
+  # leaves no "github-pages" artifact for deploy-pages to pick up.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -54,6 +56,14 @@ jobs:
       - name: Assemble demo site
         run: node scripts/assemble-demo-site.mjs gh-pages-output
 
+      - name: Verify site contents
+        run: |
+          test -f gh-pages-output/index.html || { echo "::error::gh-pages-output/index.html is missing"; exit 1; }
+          for d in react vue angular blazor; do
+            test -f "gh-pages-output/$d/index.html" || { echo "::error::demo '$d' is missing from the site"; exit 1; }
+          done
+          echo "Site contents OK"
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
@@ -62,7 +72,9 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages
           path: gh-pages-output
+          retention-days: 1
 
       - name: Deploy to GitHub Pages
         id: deployment
