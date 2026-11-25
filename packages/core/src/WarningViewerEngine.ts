@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
+import { OrbitControls } from './vendor/OrbitControls.js';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { DecalGeometry } from './vendor/DecalGeometry.js';
 import type {
   DefectPalette,
   MarkerShape,
@@ -201,7 +201,7 @@ export class WarningViewerEngine {
   private readonly geometryPool: THREE.BufferGeometry[] = [];
   private readonly materialPool: THREE.Material[] = [];
   private readonly texturePool: THREE.Texture[] = [];
-  private readonly meshPool: THREE.Mesh[] = [];
+  private readonly meshPool: THREE.Object3D[] = []; // holds pooled Mesh / Line / Sprite objects
 
   constructor(container: HTMLElement, options: WarningViewerOptions) {
     this.container = container;
@@ -1393,29 +1393,5 @@ export class WarningViewerEngine {
     this.materialPool.length = 0;
     this.texturePool.length = 0;
     this.meshPool.length = 0;
-  }
-
-  private isMobileDevice(): boolean {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-           (typeof window !== 'undefined' && window.innerWidth < 768);
-  }
-
-  private getDevicePerformanceSettings(): { maxPixelRatio: number; powerPreference: string; qualityLevel: 'low' | 'medium' | 'high' } {
-    const isMobile = this.isMobileDevice();
-    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-    
-    if (isMobile || isLowEndDevice) {
-      return {
-        maxPixelRatio: Math.min(window.devicePixelRatio, 1.5),
-        powerPreference: "low-power",
-        qualityLevel: "low"
-      };
-    }
-    
-    return {
-      maxPixelRatio: window.devicePixelRatio,
-      powerPreference: "high-performance",
-      qualityLevel: "high"
-    };
   }
 }

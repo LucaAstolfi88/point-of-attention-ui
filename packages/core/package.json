@@ -17,14 +17,15 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "sideEffects": [
     "*.css",
     "dist/point-of-attention-ui.css"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && shx cp src/point-of-attention-ui.css dist/point-of-attention-ui.css",
+    "build": "tsc -p tsconfig.json && shx cp src/point-of-attention-ui.css dist/point-of-attention-ui.css && shx cp -r src/vendor dist/",
     "build:umd": "rollup -c",
     "test": "vitest run",
     "test:watch": "vitest"
