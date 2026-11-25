@@ -1,0 +1,95 @@
+Point of Attention UI — Source-Available License (v1.0)
+
+Copyright (c) 2026 Luca Astolfi. All rights reserved, except as granted below.
+
+1. Definitions
+
+"Software" means the Point of Attention UI source code, packages, demos and
+documentation in this repository, including the packages @point-of-attention-ui/core,
+@point-of-attention-ui/react, @point-of-attention-ui/vue, @point-of-attention-ui/angular
+and the Blazor package PointOfAttention.UI.Blazor.
+
+"Owner" means the owner of the repository https://github.com/LucaAstolfi88/point-of-attention-ui
+and the copyright holder named above.
+
+"Development Use" means use of the Software for study, research, evaluation,
+learning, prototyping, testing, and development or continuous-integration
+work that does not serve end users or process data for live operations.
+
+"Production Use" means any use of the Software in a system that is put into
+operation, serves end users or customers, supports a business or commercial
+activity, or processes real inspection or quality-assurance data for
+operational decisions.
+
+2. Grant of rights for Development Use
+
+Subject to this License, you may use, copy, modify and create derivative works
+of the Software for Development Use, free of charge.
+
+You may redistribute copies or modified versions of the Software only if you
+include this License and the copyright notice unchanged, and you do not charge
+a fee for the redistribution. Redistribution does not grant any right to use
+the Software for Production Use.
+
+3. Production Use requires prior approval
+
+Production Use is not permitted under this License. Any Production Use requires
+the prior written approval of the Owner. Approval must be obtained before the
+Software is deployed in production; it may be granted with conditions, and it
+may be withdrawn with reasonable notice where the conditions are not met.
+
+To request approval, open an issue at https://github.com/LucaAstolfi88/point-of-attention-ui
+or contact the Owner by email at luca.astolfi88@gmail.com.
+
+4. Third-party components
+
+Parts of the Software are third-party components distributed under their own
+licenses, listed in packages/core/THIRD_PARTY_NOTICES.md (for example, the
+three.js files in packages/core/src/vendor/, which are MIT-licensed). Those
+components remain subject to their own licenses, and nothing in this License
+restricts rights granted by those licenses.
+
+5. Restrictions
+
+Except as expressly permitted above, you may not:
+  a) use the Software for Production Use without the approval described in section 3;
+  b) sublicense, sell, rent or lease the Software;
+  c) remove or alter copyright or license notices;
+  d) represent a modified version as the original Software.
+
+6. Ownership
+
+The Software is licensed, not sold. The Owner retains all rights, title and
+interest in the Software, except for third-party components identified in
+section 4.
+
+7. Disclaimer of warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. THE OWNER DOES NOT WARRANT THAT
+THE SOFTWARE IS ERROR-FREE OR SUITABLE FOR ANY INSPECTION, SAFETY OR
+QUALITY-CONTROL DECISION.
+
+8. Limitation of liability
+
+IN NO EVENT SHALL THE OWNER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS
+USE, WHETHER IN CONTRACT, TORT OR OTHERWISE.
+
+9. Termination
+
+This License terminates automatically if you breach it. Upon termination you
+must stop using the Software and destroy all copies in your possession.
+
+10. Entire agreement
+
+This License is the entire agreement regarding the Software and may be changed
+only by the Owner in writing.
+
+11. Governing law and jurisdiction
+
+This License is governed by the laws of the Italian Republic, without regard to
+its conflict-of-law rules. Subject to any mandatory consumer protection rules
+that apply to you, the courts of the Owner's place of residence in Italy have
+exclusive jurisdiction over any dispute arising from this License.
