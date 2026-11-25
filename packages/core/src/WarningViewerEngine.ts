@@ -697,9 +697,9 @@ export class WarningViewerEngine {
     this.controls.minDistance = 50;
     this.controls.maxDistance = 150;
     
-    // Add damping for smoother controls
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
+    // No damping: with inertia enabled the model keeps rotating after the
+    // pointer is released (a "spin"). Rotation stops as soon as the drag ends.
+    this.controls.enableDamping = false;
     
     this.scene.add(new THREE.AmbientLight(0x404040));
     const dirLight1 = new THREE.DirectionalLight(0xffddcc, 3);
@@ -917,6 +917,7 @@ export class WarningViewerEngine {
     // Use pooled material
     const material = this.getObjectFromPool(
       this.materialPool,
+      THREE.MeshPhongMaterial,
       () => new THREE.MeshPhongMaterial({
         map: decalTexture, transparent: true, depthTest: true, depthWrite: true,
         polygonOffset: true, polygonOffsetFactor: -5,
@@ -936,6 +937,7 @@ export class WarningViewerEngine {
     // Use pooled geometry
     const decalGeometry = this.getObjectFromPool(
       this.geometryPool,
+      DecalGeometry,
       () => new DecalGeometry(mesh, position, orientation, size)
     );
     
@@ -951,11 +953,13 @@ export class WarningViewerEngine {
     
     const lineMaterial = this.getObjectFromPool(
       this.materialPool,
+      THREE.LineDashedMaterial,
       () => new THREE.LineDashedMaterial({ color: 0x000000, dashSize: 3, gapSize: 1 })
     ) as THREE.LineDashedMaterial;
-    
+
     const line = this.getObjectFromPool(
       this.meshPool,
+      THREE.Line,
       () => new THREE.Line(lineGeometry, lineMaterial)
     ) as THREE.Line;
     
@@ -999,7 +1003,7 @@ export class WarningViewerEngine {
     context.fillText(text, size / 2, size / 2);
     
     // Use pooled texture if available, otherwise create new
-    const texture = this.getObjectFromPool(this.texturePool, () => new THREE.CanvasTexture(canvas));
+    const texture = this.getObjectFromPool(this.texturePool, THREE.CanvasTexture, () => new THREE.CanvasTexture(canvas));
     if (texture instanceof THREE.CanvasTexture) {
       texture.image = canvas;
       texture.needsUpdate = true;
@@ -1027,14 +1031,15 @@ export class WarningViewerEngine {
     context.fillText(text, canvasWidth / 2, canvasHeight / 2, textWidth);
     
     // Use pooled texture and material
-    const texture = this.getObjectFromPool(this.texturePool, () => new THREE.CanvasTexture(canvas));
+    const texture = this.getObjectFromPool(this.texturePool, THREE.CanvasTexture, () => new THREE.CanvasTexture(canvas));
     if (texture instanceof THREE.CanvasTexture) {
       texture.image = canvas;
       texture.needsUpdate = true;
     }
     
     const spriteMaterial = this.getObjectFromPool(
-      this.materialPool, 
+      this.materialPool,
+      THREE.SpriteMaterial,
       () => new THREE.SpriteMaterial({ map: texture })
     ) as THREE.SpriteMaterial;
     
@@ -1045,6 +1050,7 @@ export class WarningViewerEngine {
     
     const sprite = this.getObjectFromPool(
       this.meshPool,
+      THREE.Sprite,
       () => new THREE.Sprite(spriteMaterial)
     ) as THREE.Sprite;
     
@@ -1303,10 +1309,8 @@ export class WarningViewerEngine {
     this.rafId = requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
     
-    // Update controls if damping is enabled
-    if (this.controls.enableDamping) {
-      this.controls.update();
-    }
+    // Damping is disabled, so controls only change on user input and need no per-frame update.
+
   }
 
   private startResizeObserver(): void {
@@ -1351,8 +1355,25 @@ export class WarningViewerEngine {
   }
 
   // Object pooling methods
-  private getObjectFromPool<T>(pool: T[], createFn: () => T): T {
-    return pool.length > 0 ? pool.pop()! : createFn();
+  /**
+   * Takes an object of exactly `type` from `pool`, or creates one.
+   *
+   * The pools are shared by object kinds (e.g. Mesh, Line and Sprite objects all
+   * use `meshPool`). Reusing an object of a different class is a bug: a
+   * SpriteMaterial taken from a pool that holds LineDashedMaterial lacks the
+   * uniforms its shader needs and crashes the renderer. Match on the exact class.
+   */
+  private getObjectFromPool<T extends object>(
+    pool: object[],
+    type: new (...args: any[]) => T,
+    createFn: () => T
+  ): T {
+    for (let i = pool.length - 1; i >= 0; i--) {
+      if (pool[i].constructor === type) {
+        return pool.splice(i, 1)[0] as T;
+      }
+    }
+    return createFn();
   }
 
   private returnObjectToPool<T>(pool: T[], obj: T, resetFn?: (obj: T) => void): void {
@@ -1361,20 +1382,21 @@ export class WarningViewerEngine {
   }
 
   private createPooledGeometry(): THREE.BufferGeometry {
-    return this.getObjectFromPool(this.geometryPool, () => new THREE.BufferGeometry());
+    return this.getObjectFromPool(this.geometryPool, THREE.BufferGeometry, () => new THREE.BufferGeometry());
   }
 
   private createPooledMaterial(properties: THREE.MaterialParameters = {}): THREE.Material {
-    return this.getObjectFromPool(this.materialPool, () => new THREE.MeshBasicMaterial(properties));
+    return this.getObjectFromPool(this.materialPool, THREE.MeshBasicMaterial, () => new THREE.MeshBasicMaterial(properties));
   }
 
   private createPooledTexture(): THREE.Texture {
-    return this.getObjectFromPool(this.texturePool, () => new THREE.Texture());
+    return this.getObjectFromPool(this.texturePool, THREE.Texture, () => new THREE.Texture());
   }
 
   private createPooledMesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh {
     const mesh = this.getObjectFromPool(
       this.meshPool,
+      THREE.Mesh,
       () => new THREE.Mesh(geometry, material)
     ) as THREE.Mesh;
     mesh.geometry = geometry;
