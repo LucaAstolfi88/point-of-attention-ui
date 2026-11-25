@@ -28,5 +28,24 @@
     "@angular/compiler-cli": "~17.1.0",
     "ng-packagr": "~17.1.0",
     "typescript": "~5.3.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "angular",
+    "threejs",
+    "3d-viewer",
+    "defect-marking",
+    "point-of-attention",
+    "visual-inspection"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Luca Astolfi",
+  "homepage": "https://github.com/LucaAstolfi88/point-of-attention-ui#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LucaAstolfi88/point-of-attention-ui.git",
+    "directory": "packages/angular"
   }
 }

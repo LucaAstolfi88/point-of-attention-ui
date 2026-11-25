@@ -12,7 +12,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "vite build && vue-tsc --emitDeclarationOnly --declaration --outDir dist",
     "test": "vitest run",
@@ -34,11 +36,19 @@
     "vue": "^3.4.0",
     "vue-tsc": "^2.0.0"
   },
-  "keywords": ["vue", "vue3", "3d-viewer", "defect-marking", "point-of-attention"],
+  "keywords": [
+    "vue",
+    "vue3",
+    "3d-viewer",
+    "defect-marking",
+    "point-of-attention"
+  ],
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "https://github.com/LucaAstolfi88/point-of-attention-ui.git",
     "directory": "packages/vue"
-  }
+  },
+  "author": "Luca Astolfi",
+  "homepage": "https://github.com/LucaAstolfi88/point-of-attention-ui#readme"
 }

@@ -56,5 +56,7 @@
     "type": "git",
     "url": "https://github.com/LucaAstolfi88/point-of-attention-ui.git",
     "directory": "packages/core"
-  }
+  },
+  "author": "Luca Astolfi",
+  "homepage": "https://github.com/LucaAstolfi88/point-of-attention-ui#readme"
 }
