@@ -8,129 +8,228 @@
 @implements IAsyncDisposable
 
 <PageTitle>Point of Attention Blazor Demo</PageTitle>
-<link rel="stylesheet" href="css/app.css" />
-<header><h1>Point of Attention — @(ModelUrl is null ? "Demo" : ActiveLabel) <span>Blazor</span></h1></header>
-<div class="workspace">
-<aside class="scenario-menu @(ScenarioMenuOpen ? null : "collapsed")">
-    <button class="menu-collapse-btn" type="button"
-            aria-expanded="@ScenarioMenuOpen"
-            aria-label="@(ScenarioMenuOpen ? "Collapse scenario menu" : "Expand scenario menu")"
-            @onclick="() => ScenarioMenuOpen = !ScenarioMenuOpen">@(ScenarioMenuOpen ? "‹" : "›")</button>
-    @if (ScenarioMenuOpen)
-    {
-    <div class="scenario-menu-content">
-    <h2>Demo scenarios</h2>
-    @foreach (var asset in Models)
-    {
-        <details open>
-            <summary>@asset.Label</summary>
-            @foreach (var item in asset.Scenarios ?? [])
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-header-lead">
+            <button class="icon-btn menu-toggle" type="button"
+                    aria-label="Toggle scenario menu" aria-controls="scenario-menu"
+                    aria-expanded="@(ScenarioMenuOpen ? "true" : "false")"
+                    @onclick="() => ScenarioMenuOpen = !ScenarioMenuOpen"><span aria-hidden="true">☰</span></button>
+            <h1 class="app-title">
+                <span class="app-title-text">Point of Attention — @(ModelUrl is null ? "Demo" : ActiveLabel)</span>
+                <span class="app-badge">Blazor</span>
+            </h1>
+        </div>
+        <div class="app-header-actions">
+            @if (ModelUrl is not null)
             {
-                <button class="@(ActiveLabel == $"{asset.Label} — {item.Label}" ? "active" : null)"
-                        @onclick="() => StartDemo(asset, item)">
-                    @item.Label
-                    @if (!string.IsNullOrEmpty(item.Badge)) { <small>@item.Badge</small> }
-                </button>
+                <button class="toolbar-btn" type="button" @onclick="ChangeDemo">Close demo</button>
             }
-        </details>
-    }
-    <details open>
-        <summary>Custom model</summary>
-        <label class="upload-button">Upload new model <InputFile accept=".glb,.gltf" OnChange="SelectFile" /></label>
-        @if (File is not null) { <button @onclick="StartUploadedDemo">Open @File.Name</button> }
-    </details>
-    @if (Error is not null && ModelUrl is null) { <p role="alert">@Error</p> }
-    </div>
-    }
-</aside>
-@if (ModelUrl is not null)
-{
-<div class="workspace-content">
-<nav>
-    <button @onclick="() => ShowDetails = !ShowDetails">@(ShowDetails ? "Hide details" : "Show details")</button>
-    <button @onclick="ChangeDemo">Change demo</button>
-    @foreach (var view in CameraViews)
+            <a class="app-link" href="https://github.com/LucaAstolfi88/point-of-attention-ui" target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </header>
+
+    @if (ModelUrl is not null)
     {
-        <button @onclick="() => SetCameraView(view)">@view</button>
-    }
-    <button @onclick="ZoomToFit">Zoom Fit</button>
-    <button @onclick="Undo">Undo</button>
-    <button @onclick="Redo">Redo</button>
-    <button @onclick="ClearAll">Clear All</button>
-    <button @onclick='() => SetPage("viewer")'>Inspection</button>
-    <button @onclick='() => SetPage("analytics")'>Analytics</button>
-    <span>Defects: @Defects.Count · Parts: @Parts.Count</span>
-</nav>
-<main>
-    <section class="viewer">
-        <WarningViewer @ref="Viewer" ModelUrl="@ModelUrl" Defects="Defects" PartsVisibility="PartsVisibility"
-                       SelectionOptions="SelectionOptions" Locale="Locale"
-                       DefectsChanged="OnDefectsChanged" ModelLoaded="OnModelLoaded"
-                       SnapshotReport="OnSnapshotReport" ModelLoadError="OnModelLoadError" />
-    </section>
-    @if (ShowDetails && Page == "viewer")
-    {
-    <aside class="viewer-details">
-        @if (Error is not null) { <p role="alert">@Error</p> }
-        <h2>Parts Visibility</h2>
-        @foreach (var part in Parts)
-        {
-            <label><input type="checkbox" checked="@Visible(part.Name)" @onchange="e => TogglePart(part.Name, (bool)e.Value!)" /> @part.Name</label>
-        }
-        <h2>Defects (@Defects.Count)</h2>
-        @if (Defects.Count == 0)
-        {
-            <p>Click on the model to add defects.</p>
-        }
-        <ul>
-            @foreach (var defect in Defects)
-            {
-                <li>@(defect.Metadata?.GetValueOrDefault("optionLabel")?.ToString() ?? defect.Label) — @defect.MeshName <button @onclick="() => RemoveDefect(defect.Id)">Remove</button></li>
-            }
-        </ul>
-        <h2>Snapshots (@Reports.Count)</h2>
-        @foreach (var report in Reports)
-        {
-            <div class="report">
-                @foreach (var image in report.Images)
+        <div class="app-toolbar">
+            <div class="page-tabs" role="tablist" aria-label="Viewer pages">
+                <button role="tab" type="button" aria-selected="@(Page == "viewer" ? "true" : "false")" class="@(Page == "viewer" ? "active" : null)" @onclick='() => SetPage("viewer")'>Inspection</button>
+                <button role="tab" type="button" aria-selected="@(Page == "analytics" ? "true" : "false")" class="@(Page == "analytics" ? "active" : null)" @onclick='() => SetPage("analytics")'>Analytics</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="toolbar-label">Camera:</span>
+                @foreach (var view in CameraViews)
                 {
-                    <img src="@image.DataUri" alt="@image.View" />
+                    <button class="toolbar-btn" type="button" @onclick="() => SetCameraView(view)">@view</button>
                 }
+                <button class="toolbar-btn toolbar-btn--accent" type="button" @onclick="ZoomToFit">Zoom Fit</button>
+            </div>
+            <div class="toolbar-group">
+                <button class="toolbar-btn" type="button" title="Undo" @onclick="Undo">↩ Undo</button>
+                <button class="toolbar-btn" type="button" title="Redo" @onclick="Redo">↪ Redo</button>
+                <button class="toolbar-btn toolbar-btn--danger" type="button" @onclick="ClearAll">✕ Clear All</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="toolbar-stat">Defects: <strong>@Defects.Count</strong></span>
+                <span class="toolbar-stat">Parts: <strong>@Parts.Count</strong></span>
+            </div>
+        </div>
+    }
+
+    <div class="app-main">
+        @if (ScenarioMenuOpen)
+        {
+            <button type="button" class="drawer-backdrop" aria-label="Close scenario menu"
+                    @onclick="() => ScenarioMenuOpen = false"></button>
+        }
+        <aside id="scenario-menu" class="scenario-sidebar @(ScenarioMenuOpen ? null : "scenario-sidebar--collapsed")">
+            <div class="scenario-sidebar-head">
+                <h2 class="sidebar-title">Demo scenarios</h2>
+                <button class="menu-collapse-btn" type="button"
+                        aria-expanded="@(ScenarioMenuOpen ? "true" : "false")"
+                        aria-label="@(ScenarioMenuOpen ? "Collapse scenario menu" : "Expand scenario menu")"
+                        @onclick="() => ScenarioMenuOpen = !ScenarioMenuOpen"><span class="chev" aria-hidden="true">›</span></button>
+            </div>
+            <nav class="scenario-menu" aria-label="Demo scenarios">
+                @foreach (var asset in Models)
+                {
+                    <details class="scenario-model" open>
+                        <summary>@asset.Label</summary>
+                        @foreach (var item in asset.Scenarios ?? [])
+                        {
+                            <button type="button"
+                                    class="scenario-button @(ActiveLabel == $"{asset.Label} — {item.Label}" ? "scenario-button--active" : null)"
+                                    @onclick="() => PickScenario(asset, item)">
+                                <span>@item.Label</span>
+                                @if (!string.IsNullOrEmpty(item.Badge)) { <small>@item.Badge</small> }
+                            </button>
+                        }
+                    </details>
+                }
+                <details class="scenario-model" open>
+                    <summary>Custom model</summary>
+                    <label class="upload-button">Upload new model <InputFile accept=".glb,.gltf" OnChange="SelectFile" /></label>
+                    @if (File is not null) { <button type="button" class="scenario-button" @onclick="OpenUpload">Open @File.Name</button> }
+                </details>
+            </nav>
+            @if (Error is not null && ModelUrl is null) { <p role="alert" class="scenario-error">@Error</p> }
+        </aside>
+
+        @if (ModelUrl is not null)
+        {
+            <div class="app-stage">
+                <div class="app-viewer">
+                    @if (Error is not null)
+                    {
+                        <div class="app-overlay app-overlay--error" role="alert"><p>⚠️ @Error</p></div>
+                    }
+                    <WarningViewer @ref="Viewer" ModelUrl="@ModelUrl" Defects="Defects" PartsVisibility="PartsVisibility"
+                                   SelectionOptions="SelectionOptions" Locale="Locale"
+                                   DefectsChanged="OnDefectsChanged" ModelLoaded="OnModelLoaded"
+                                   SnapshotReport="OnSnapshotReport" ModelLoadError="OnModelLoadError" />
+                </div>
+
+                <aside id="details-panel" class="app-sidebar @(PanelOpen ? null : "app-sidebar--collapsed")" aria-label="@PanelTitle">
+                    <div class="sidebar-header">
+                        <h2 class="sidebar-title">
+                            @PanelTitle
+                            <span class="sidebar-count" aria-label="@Defects.Count defects">@Defects.Count</span>
+                        </h2>
+                        <button class="panel-collapse-btn" type="button" aria-controls="details-panel"
+                                aria-expanded="@(PanelOpen ? "true" : "false")"
+                                aria-label="@((PanelOpen ? "Collapse " : "Expand ") + PanelTitle.ToLowerInvariant() + " panel")"
+                                @onclick="() => PanelOpen = !PanelOpen"><span class="chev" aria-hidden="true">›</span></button>
+                    </div>
+
+                    @if (PanelOpen && Page == "viewer")
+                    {
+                        <div class="sidebar-body">
+                            <section class="sidebar-section">
+                                <h3 class="sidebar-title">Parts Visibility</h3>
+                                @if (Parts.Count == 0) { <p class="sidebar-empty">Loading parts…</p> }
+                                <ul class="part-list">
+                                    @foreach (var part in Parts)
+                                    {
+                                        <li class="part-item">
+                                            <label class="part-label">
+                                                <input type="checkbox" checked="@Visible(part.Name)" @onchange="e => TogglePart(part.Name, (bool)e.Value!)" />
+                                                <span class="@(Visible(part.Name) ? null : "part-label--hidden")">@part.Name</span>
+                                            </label>
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+
+                            <section class="sidebar-section">
+                                <h3 class="sidebar-title">Defects (@Defects.Count)</h3>
+                                @if (Defects.Count == 0)
+                                {
+                                    <p class="sidebar-empty">Tap or click on the model to add defects.</p>
+                                }
+                                <ul class="defect-list">
+                                    @foreach (var defect in Defects)
+                                    {
+                                        var label = defect.Metadata?.GetValueOrDefault("optionLabel")?.ToString() ?? defect.Label;
+                                        <li class="defect-item">
+                                            <span class="defect-severity defect-severity--@(defect.Severity ?? "error")"></span>
+                                            <span class="defect-label">@label</span>
+                                            <span class="defect-part">@defect.MeshName</span>
+                                            <button class="defect-remove" type="button" title="Remove" aria-label="Remove @(label ?? "defect")"
+                                                    @onclick="() => RemoveDefect(defect.Id)">✕</button>
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+
+                            <section class="sidebar-section">
+                                <h3 class="sidebar-title">
+                                    <button class="sidebar-toggle" type="button" aria-expanded="@(ShowReports ? "true" : "false")"
+                                            @onclick="() => ShowReports = !ShowReports">
+                                        Snapshots (@Reports.Count) @(ShowReports ? "▾" : "▸")
+                                    </button>
+                                </h3>
+                                @if (ShowReports)
+                                {
+                                    @if (Reports.Count == 0) { <p class="sidebar-empty">Add a defect to generate the first snapshot report.</p> }
+                                    @foreach (var report in Reports)
+                                    {
+                                        <div class="report-card">
+                                            <div class="report-images">
+                                                @foreach (var image in report.Images)
+                                                {
+                                                    <figure class="report-figure">
+                                                        <img class="report-thumb" src="@image.DataUri" alt="@image.View view" />
+                                                        <figcaption>@image.View</figcaption>
+                                                    </figure>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </section>
+                        </div>
+                    }
+                    else if (PanelOpen)
+                    {
+                        <div class="sidebar-body">
+                            <section class="analytics-summary">
+                                <span>Total warnings</span>
+                                <strong>@Defects.Count</strong>
+                                <small>@ComponentStats.Count affected components</small>
+                            </section>
+                            <section class="sidebar-section">
+                                <h3 class="sidebar-title">Warnings by type</h3>
+                                @if (TypeStats.Count == 0) { <p class="sidebar-empty">No warnings recorded.</p> }
+                                @foreach (var item in TypeStats)
+                                {
+                                    <div class="stat-row">
+                                        <div><span>@item.Label</span><strong>@item.Count</strong></div>
+                                        <div class="stat-track"><span style="width:@((item.Count / (double)MaxCount(TypeStats) * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></span></div>
+                                    </div>
+                                }
+                            </section>
+                            <section class="sidebar-section">
+                                <h3 class="sidebar-title">Surface heat map</h3>
+                                <div class="heat-legend"><span>Low</span><i></i><span>High</span></div>
+                                @foreach (var item in ComponentStats)
+                                {
+                                    <div class="heat-row"><span>@item.Label</span><strong>@item.Count</strong></div>
+                                }
+                            </section>
+                        </div>
+                    }
+                </aside>
             </div>
         }
-    </aside>
-    }
-    @if (Page == "analytics")
-    {
-    <aside class="analytics-panel">
-        <div class="analytics-summary"><span>Total warnings</span><strong>@Defects.Count</strong><small>@ComponentStats.Count affected components</small></div>
-        <h2>Warnings by type</h2>
-        @if (TypeStats.Count == 0) { <p>No warnings recorded.</p> }
-        @foreach (var item in TypeStats)
+        else
         {
-            <div class="stat-row">
-                <div><span>@item.Label</span><strong>@item.Count</strong></div>
-                <div class="stat-track"><span style="width:@(item.Count / (double)MaxCount(TypeStats) * 100)%"></span></div>
-            </div>
+            <main class="demo-setup">
+                <h2>Inspection workspace</h2>
+                <p>Select a preset scenario from the menu or upload a GLB model.</p>
+                <button class="toolbar-btn toolbar-btn--accent mobile-only" type="button" @onclick="() => ScenarioMenuOpen = true">Browse scenarios</button>
+            </main>
         }
-        <h2>Surface heat map</h2>
-        <div class="heat-legend"><span>Low</span><i></i><span>High</span></div>
-        @foreach (var item in ComponentStats)
-        {
-            <div class="heat-row"><span>@item.Label</span><strong>@item.Count</strong></div>
-        }
-    </aside>
-    }
-</main>
-</div>
-}
-else
-{
-    <main class="demo-setup">
-        <h2>Inspection workspace</h2>
-        <p>Select a preset scenario from the left menu or upload a GLB model.</p>
-    </main>
-}
+    </div>
 </div>
 
 @code {
@@ -159,8 +258,40 @@ else
     private List<ViewerPart> Parts = new();
     private List<SnapshotReport> Reports = new();
     private WarningViewer? Viewer;
-    private bool ShowDetails = true;
+    private bool PanelOpen = true;
+    private bool ShowReports;
     private bool ScenarioMenuOpen = true;
+    private string PanelTitle => Page == "analytics" ? "Analytics" : "Details";
+
+    // On phones the menu is a drawer and the panel a bottom sheet: start with the panel collapsed.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        DemoModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./demo.js");
+        if (await DemoModule.InvokeAsync<bool>("isCompact"))
+        {
+            PanelOpen = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PickScenario(ModelAsset asset, ModelScenario scenario)
+    {
+        await StartDemo(asset, scenario);
+        await CloseMenuOnCompactAsync();
+    }
+
+    private async Task OpenUpload()
+    {
+        await StartUploadedDemo();
+        await CloseMenuOnCompactAsync();
+    }
+
+    private async Task CloseMenuOnCompactAsync()
+    {
+        DemoModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./demo.js");
+        if (await DemoModule.InvokeAsync<bool>("isCompact")) ScenarioMenuOpen = false;
+    }
     private List<ModelAsset> Models = [];
     private List<Statistic> TypeStats => AggregateDefects(true);
     private List<Statistic> ComponentStats => AggregateDefects(false).OrderByDescending(item => item.Count).ToList();

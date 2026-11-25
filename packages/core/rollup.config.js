@@ -1,8 +1,16 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
+import terser from '@rollup/plugin-terser';
 
 /** Shared external list */
 const external = (id) => id === 'three' || id.startsWith('three/');
+
+// Treeshaking options
+const treeshake = {
+  moduleSideEffects: false,
+  propertyReadSideEffects: false,
+  tryCatchDeoptimization: false
+};
 
 export default [
   // ── ESM bundle (npm package consumers) ──
@@ -14,7 +22,30 @@ export default [
       sourcemap: true,
     },
     external,
-    plugins: [typescript({ tsconfig: './tsconfig.json' })],
+    treeshake,
+    plugins: [
+      typescript({ 
+        tsconfig: './tsconfig.json',
+        declaration: true,
+        declarationMap: true
+      }),
+      terser({
+        compress: {
+          passes: 2,
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.debug', 'console.info']
+        },
+        mangle: {
+          properties: {
+            regex: /^_[^_]/,
+          }
+        },
+        output: {
+          comments: false
+        }
+      })
+    ],
   },
   // ── UMD bundle (Blazor / CDN consumers) ──
   {
@@ -27,6 +58,26 @@ export default [
       exports: 'named',
       sourcemap: true,
     },
-    plugins: [nodeResolve(), typescript({ tsconfig: './tsconfig.json' })],
+    treeshake,
+    plugins: [
+      nodeResolve(), 
+      typescript({ tsconfig: './tsconfig.json' }),
+      terser({
+        compress: {
+          passes: 2,
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.debug', 'console.info']
+        },
+        mangle: {
+          properties: {
+            regex: /^_[^_]/,
+          }
+        },
+        output: {
+          comments: false
+        }
+      })
+    ],
   },
 ];

@@ -62,33 +62,56 @@ describe('AppComponent', () => {
 
     expect(component.modelUrl).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.warning-viewer-mock')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('aside')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.app-sidebar')).toBeTruthy();
   });
 
-  it('toggles the details panel', () => {
+  it('collapses and expands the details panel', () => {
     component.modelUrl = 'assets/models/Van.glb';
-    component.activeScenario = 'empty';
+    component.panelOpen = true;
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.viewer-details')).toBeTruthy();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.app-sidebar .sidebar-body')).toBeTruthy();
+    expect(host.querySelector('.app-sidebar--collapsed')).toBeFalsy();
 
-    component.showDetails = false;
+    host.querySelector<HTMLButtonElement>('.panel-collapse-btn')!.click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.viewer-details')).toBeFalsy();
+    expect(host.querySelector('.app-sidebar .sidebar-body')).toBeFalsy();
+    expect(host.querySelector('.app-sidebar--collapsed')).toBeTruthy();
+    expect(host.querySelector('.panel-collapse-btn')?.getAttribute('aria-expanded')).toBe('false');
 
-    component.showDetails = true;
+    host.querySelector<HTMLButtonElement>('.panel-collapse-btn')!.click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.viewer-details')).toBeTruthy();
+    expect(host.querySelector('.app-sidebar .sidebar-body')).toBeTruthy();
+  });
+
+  it('keeps the analytics panel collapsible', () => {
+    component.modelUrl = 'assets/models/Van.glb';
+    component.panelOpen = true;
+    component.page = 'analytics';
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.analytics-summary')).toBeTruthy();
+    expect(host.querySelector('.sidebar-header .sidebar-title')?.textContent).toContain('Analytics');
+
+    host.querySelector<HTMLButtonElement>('.panel-collapse-btn')!.click();
+    fixture.detectChanges();
+    expect(host.querySelector('.analytics-summary')).toBeFalsy();
+    expect(host.querySelector('.app-sidebar--collapsed')).toBeTruthy();
   });
 
   it('collapses and expands the scenario menu', () => {
-    component.scenarioMenuOpen = false;
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.scenario-menu-content')).toBeFalsy();
-
+    const host = fixture.nativeElement as HTMLElement;
     component.scenarioMenuOpen = true;
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.scenario-menu-content')).toBeTruthy();
+    expect(host.querySelector('.scenario-sidebar--collapsed')).toBeFalsy();
+
+    host.querySelector<HTMLButtonElement>('.menu-collapse-btn')!.click();
+    fixture.detectChanges();
+    expect(component.scenarioMenuOpen).toBe(false);
+    expect(host.querySelector('.scenario-sidebar--collapsed')).toBeTruthy();
+    expect(host.querySelector('.menu-collapse-btn')?.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('shows an error when opening an upload without a file', () => {

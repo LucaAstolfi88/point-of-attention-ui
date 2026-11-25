@@ -1,3 +1,2 @@
-* { box-sizing: border-box; }
-html, body { width:100%; height:100%; margin:0; }
-body { overflow:hidden; }
+/* Layout and component styles are shared across all demos (see ../assets/demo-shell.css,
+   registered in angular.json). Only app-wide resets live here. */

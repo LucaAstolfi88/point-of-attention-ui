@@ -162,12 +162,19 @@ export class WarningViewerEngine {
   private warningCount = 0;
 
   private isLoading = false;
+  private loadingProgress = 0;
+  private loadingState: 'idle' | 'loading' | 'processing' | 'complete' = 'idle';
   private isDragging = false;
   private pointerDownPos: { x: number; y: number } | null = null;
   private activePointerId: number | null = null;
   private disposed = false;
   private rafId = 0;
   private resizeObserver: ResizeObserver | null = null;
+  
+  // Throttling and debouncing timers
+  private resizeTimeoutId: number | null = null;
+  private pointerMoveTimeoutId: number | null = null;
+  private renderThrottleId: number | null = null;
 
   private pendingSelection: PendingSelection | null = null;
 
@@ -189,6 +196,12 @@ export class WarningViewerEngine {
     rayLength: number;
     pulseOnSelect: boolean;
   };
+
+  // Object pools for frequently created objects
+  private readonly geometryPool: THREE.BufferGeometry[] = [];
+  private readonly materialPool: THREE.Material[] = [];
+  private readonly texturePool: THREE.Texture[] = [];
+  private readonly meshPool: THREE.Mesh[] = [];
 
   constructor(container: HTMLElement, options: WarningViewerOptions) {
     this.container = container;
@@ -512,14 +525,19 @@ export class WarningViewerEngine {
 
   generateCameraImages(): string[] {
     if (!this.componentGroup) return [];
-    const canvasWidth = 1024;
-    const canvasHeight = 768;
+    
+    // Reduce image quality for mobile devices to save memory
+    const isMobile = this.isMobileDevice();
+    const canvasWidth = isMobile ? 512 : 1024;
+    const canvasHeight = isMobile ? 384 : 768;
+    
     const positions: Array<[number, number, number]> = [
       [84.33, 76.3, 97.79],
       [-57.5, -33.95, -37.94],
     ];
     const { canvas, renderer } = this.getSnapshotRenderer(canvasWidth, canvasHeight);
     const images: string[] = [];
+    
     try {
       positions.forEach(pos => {
         this.renderCamera.copy(this.camera);
@@ -529,7 +547,10 @@ export class WarningViewerEngine {
         this.renderCamera.updateProjectionMatrix();
         renderer.setClearColor(0xe1e2e2, 0.6);
         renderer.render(this.scene, this.renderCamera);
-        images.push(canvas.toDataURL());
+        
+        // Use lower quality for mobile devices
+        const quality = isMobile ? 0.8 : 0.92;
+        images.push(canvas.toDataURL('image/png', quality));
       });
     } finally {
       this.renderCamera.copy(this.camera);
@@ -582,17 +603,26 @@ export class WarningViewerEngine {
     this.snapshotCanvas = null;
     this.renderer.dispose();
     this.renderer.forceContextLoss();
+    
+    // Dispose pooled objects
+    this.disposePooledObjects();
+    
     this.canvas.remove();
   }
 
   private captureSnapshotInternal(view: SnapshotView): string {
     if (!this.componentGroup) return '';
-    const canvasWidth = 1024;
-    const canvasHeight = 768;
+    
+    // Reduce snapshot quality for mobile devices to save memory
+    const isMobile = this.isMobileDevice();
+    const canvasWidth = isMobile ? 512 : 1024;
+    const canvasHeight = isMobile ? 384 : 768;
+    
     const { canvas, renderer } = this.getSnapshotRenderer(canvasWidth, canvasHeight);
     const savedPos = this.camera.position.clone();
     const savedQuat = this.camera.quaternion.clone();
     const savedZoom = this.camera.zoom;
+    
     try {
       const distance = this.modelSize * 2;
       const center = this.modelCenter;
@@ -610,7 +640,10 @@ export class WarningViewerEngine {
       this.camera.updateProjectionMatrix();
       renderer.setClearColor(this.options.backgroundColor, 0.6);
       renderer.render(this.scene, this.camera);
-      return canvas.toDataURL('image/png');
+      
+      // Use lower quality for mobile devices
+      const quality = isMobile ? 0.8 : 0.92;
+      return canvas.toDataURL('image/png', quality);
     } finally {
       this.camera.position.copy(savedPos);
       this.camera.quaternion.copy(savedQuat);
@@ -643,14 +676,31 @@ export class WarningViewerEngine {
 
   private initThree(): void {
     const { clientWidth, clientHeight } = this.container;
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    
+    // Adaptive rendering quality based on device capabilities
+    const isMobile = this.isMobileDevice();
+    const maxPixelRatio = isMobile ? Math.min(window.devicePixelRatio, 1.5) : window.devicePixelRatio;
+    const powerPreference = isMobile ? "low-power" : "high-performance";
+    
+    this.renderer.setPixelRatio(maxPixelRatio);
     this.renderer.setSize(clientWidth || 1, clientHeight || 1);
     this.renderer.setClearColor(this.options.backgroundColor, 0.6);
+    
+    // Enable performance optimizations
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
+    
     this.camera.position.z = 150;
     this.renderCamera.position.setZ(150);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.minDistance = 50;
     this.controls.maxDistance = 150;
+    
+    // Add damping for smoother controls
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    
     this.scene.add(new THREE.AmbientLight(0x404040));
     const dirLight1 = new THREE.DirectionalLight(0xffddcc, 3);
     dirLight1.position.set(1, 0.75, 0.5);
@@ -662,6 +712,14 @@ export class WarningViewerEngine {
 
   private loadModel(url: string): void {
     this.isLoading = true;
+    this.loadingState = 'loading';
+    this.loadingProgress = 0;
+    
+    // Emit initial loading state
+    if (this.options.onModelLoadError) {
+      // We can use this callback to emit loading progress if needed
+    }
+    
     const loader = new GLTFLoader();
     loader.load(
       url,
@@ -669,6 +727,10 @@ export class WarningViewerEngine {
         // Ignore late loads from a disposed engine (e.g. React StrictMode
         // double-mount) or from a superseded model URL.
         if (this.disposed || url !== this.options.modelUrl) return;
+        
+        this.loadingState = 'processing';
+        this.loadingProgress = 90;
+        
         this.clearHeatMapDecals();
         if (this.componentGroup) {
           this.componentGroup.traverse(obj => {
@@ -695,16 +757,25 @@ export class WarningViewerEngine {
         this.controls.maxDistance = this.modelSize * 20;
         this.zoomToFit();
         this.isLoading = false;
+        this.loadingState = 'complete';
+        this.loadingProgress = 100;
         this.applyPartsVisibility();
         this.rerenderDefects();
         this.options.onModelLoaded?.(this.getParts());
         this.applyHeatMap();
         this.generateSnapshotReport();
       },
-      undefined,
+      progress => {
+        // Progress callback - update loading progress
+        if (progress.total > 0) {
+          this.loadingProgress = Math.round((progress.loaded / progress.total) * 80);
+        }
+      },
       error => {
         if (this.disposed || url !== this.options.modelUrl) return;
         this.isLoading = false;
+        this.loadingState = 'idle';
+        this.loadingProgress = 0;
         this.options.onModelLoadError?.(error);
       }
     );
@@ -738,6 +809,31 @@ export class WarningViewerEngine {
       this.scene.remove(d.decal);
       this.scene.remove(d.line);
       this.scene.remove(d.label);
+      
+      // Return objects to pools
+      if (d.decal.geometry) {
+        this.returnObjectToPool(this.geometryPool, d.decal.geometry, (geom) => geom.dispose());
+      }
+      if (d.decal.material) {
+        const material = d.decal.material as THREE.Material;
+        this.returnObjectToPool(this.materialPool, material, (mat) => mat.dispose());
+      }
+      
+      // Dispose line geometry and material
+      if (d.line.geometry) {
+        this.returnObjectToPool(this.geometryPool, d.line.geometry, (geom) => geom.dispose());
+      }
+      if (d.line.material) {
+        const material = d.line.material as THREE.Material;
+        this.returnObjectToPool(this.materialPool, material, (mat) => mat.dispose());
+      }
+      
+      // Dispose label material and texture
+      const labelMaterial = d.label.material as THREE.SpriteMaterial;
+      if (labelMaterial.map) {
+        this.returnObjectToPool(this.texturePool, labelMaterial.map, (tex) => tex.dispose());
+      }
+      this.returnObjectToPool(this.materialPool, labelMaterial, (mat) => mat.dispose());
     });
     this.renderedDefects = [];
     this.defects.forEach(defect => this.renderDefect(defect));
@@ -747,10 +843,16 @@ export class WarningViewerEngine {
   private clearHeatMapDecals(): void {
     this.heatMapDecals.forEach(decal => {
       this.scene.remove(decal);
-      decal.geometry.dispose();
+      
+      // Return objects to pools instead of disposing
+      if (decal.geometry) {
+        this.returnObjectToPool(this.geometryPool, decal.geometry, (geom) => geom.dispose());
+      }
       const material = decal.material as THREE.MeshBasicMaterial;
-      material.map?.dispose();
-      material.dispose();
+      if (material.map) {
+        this.returnObjectToPool(this.texturePool, material.map, (tex) => tex.dispose());
+      }
+      this.returnObjectToPool(this.materialPool, material, (mat) => mat.dispose());
     });
     this.heatMapDecals = [];
   }
@@ -811,19 +913,57 @@ export class WarningViewerEngine {
     const size = new THREE.Vector3().setScalar(this.modelSize * 0.05);
     const color = resolveSeverityColor(defect.severity, this.options.palette);
     const decalTexture = this.createDecalTexture(defect.label ?? '', color, this.options.markerShape);
-    const material = new THREE.MeshPhongMaterial({
-      map: decalTexture, transparent: true, depthTest: true, depthWrite: true,
-      polygonOffset: true, polygonOffsetFactor: -5,
-    });
-    const decal = new THREE.Mesh(new DecalGeometry(mesh, position, orientation, size), material);
+    
+    // Use pooled material
+    const material = this.getObjectFromPool(
+      this.materialPool,
+      () => new THREE.MeshPhongMaterial({
+        map: decalTexture, transparent: true, depthTest: true, depthWrite: true,
+        polygonOffset: true, polygonOffsetFactor: -5,
+      })
+    ) as THREE.MeshPhongMaterial;
+    
+    if (material.map !== decalTexture) {
+      material.map = decalTexture;
+      material.transparent = true;
+      material.depthTest = true;
+      material.depthWrite = true;
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = -5;
+      material.needsUpdate = true;
+    }
+    
+    // Use pooled geometry
+    const decalGeometry = this.getObjectFromPool(
+      this.geometryPool,
+      () => new DecalGeometry(mesh, position, orientation, size)
+    );
+    
+    const decal = this.createPooledMesh(decalGeometry, material);
     decal.userData = { meshParent: mesh };
     this.scene.add(decal);
+    
     const surfacePoint = this.computeSurfacePoint(position);
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints([position, surfacePoint]);
-    const lineMaterial = new THREE.LineDashedMaterial({ color: 0x000000, dashSize: 3, gapSize: 1 });
-    const line = new THREE.Line(lineGeometry, lineMaterial);
+    
+    // Use pooled line geometry and material
+    const lineGeometry = this.createPooledGeometry();
+    lineGeometry.setFromPoints([position, surfacePoint]);
+    
+    const lineMaterial = this.getObjectFromPool(
+      this.materialPool,
+      () => new THREE.LineDashedMaterial({ color: 0x000000, dashSize: 3, gapSize: 1 })
+    ) as THREE.LineDashedMaterial;
+    
+    const line = this.getObjectFromPool(
+      this.meshPool,
+      () => new THREE.Line(lineGeometry, lineMaterial)
+    ) as THREE.Line;
+    
+    line.geometry = lineGeometry;
+    line.material = lineMaterial;
     line.computeLineDistances();
     this.scene.add(line);
+    
     const label = this.createLabel(defect.label ?? '', surfacePoint);
     label.userData = {
       cameraPosition: defect.cameraPosition
@@ -857,8 +997,13 @@ export class WarningViewerEngine {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(text, size / 2, size / 2);
-    const texture = new THREE.Texture(canvas);
-    texture.needsUpdate = true;
+    
+    // Use pooled texture if available, otherwise create new
+    const texture = this.getObjectFromPool(this.texturePool, () => new THREE.CanvasTexture(canvas));
+    if (texture instanceof THREE.CanvasTexture) {
+      texture.image = canvas;
+      texture.needsUpdate = true;
+    }
     return texture;
   }
 
@@ -880,9 +1025,30 @@ export class WarningViewerEngine {
     context.textBaseline = 'middle';
     context.font = fontSize + 'px Arial';
     context.fillText(text, canvasWidth / 2, canvasHeight / 2, textWidth);
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    // Use pooled texture and material
+    const texture = this.getObjectFromPool(this.texturePool, () => new THREE.CanvasTexture(canvas));
+    if (texture instanceof THREE.CanvasTexture) {
+      texture.image = canvas;
+      texture.needsUpdate = true;
+    }
+    
+    const spriteMaterial = this.getObjectFromPool(
+      this.materialPool, 
+      () => new THREE.SpriteMaterial({ map: texture })
+    ) as THREE.SpriteMaterial;
+    
+    if (spriteMaterial.map !== texture) {
+      spriteMaterial.map = texture;
+      spriteMaterial.needsUpdate = true;
+    }
+    
+    const sprite = this.getObjectFromPool(
+      this.meshPool,
+      () => new THREE.Sprite(spriteMaterial)
+    ) as THREE.Sprite;
+    
+    sprite.material = spriteMaterial;
     sprite.position.copy(position);
     sprite.scale.set(this.modelSize * 0.15, this.modelSize * 0.08, 1);
     return sprite;
@@ -926,11 +1092,20 @@ export class WarningViewerEngine {
 
   private readonly onPointerMove = (event: PointerEvent): void => {
     if (!event.isPrimary || event.pointerId !== this.activePointerId || !this.pointerDownPos) return;
-    const dx = event.clientX - this.pointerDownPos.x;
-    const dy = event.clientY - this.pointerDownPos.y;
-    if (dx * dx + dy * dy > POINTER_TAP_MOVEMENT_THRESHOLD_SQUARED) {
-      this.isDragging = true;
+    
+    // Throttle pointer move events
+    if (this.pointerMoveTimeoutId !== null) {
+      return;
     }
+    
+    this.pointerMoveTimeoutId = window.setTimeout(() => {
+      const dx = event.clientX - this.pointerDownPos!.x;
+      const dy = event.clientY - this.pointerDownPos!.y;
+      if (dx * dx + dy * dy > POINTER_TAP_MOVEMENT_THRESHOLD_SQUARED) {
+        this.isDragging = true;
+      }
+      this.pointerMoveTimeoutId = null;
+    }, 16); // ~60fps throttle
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
@@ -957,10 +1132,18 @@ export class WarningViewerEngine {
   };
 
   private readonly onResize = (): void => {
-    const { clientWidth, clientHeight } = this.container;
-    this.camera.aspect = (clientWidth || 1) / (clientHeight || 1);
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(clientWidth || 1, clientHeight || 1);
+    // Debounce resize events
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+    }
+    
+    this.resizeTimeoutId = window.setTimeout(() => {
+      const { clientWidth, clientHeight } = this.container;
+      this.camera.aspect = (clientWidth || 1) / (clientHeight || 1);
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(clientWidth || 1, clientHeight || 1);
+      this.resizeTimeoutId = null;
+    }, 100); // 100ms debounce delay
   };
 
   private bindEvents(): void {
@@ -977,6 +1160,20 @@ export class WarningViewerEngine {
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    
+    // Clean up timeouts
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+    if (this.pointerMoveTimeoutId !== null) {
+      clearTimeout(this.pointerMoveTimeoutId);
+      this.pointerMoveTimeoutId = null;
+    }
+    if (this.renderThrottleId !== null) {
+      clearTimeout(this.renderThrottleId);
+      this.renderThrottleId = null;
+    }
   }
 
   private handleTap(clientX: number, clientY: number): void {
@@ -1071,17 +1268,20 @@ export class WarningViewerEngine {
     const startTime = Date.now();
     const startPosition = camera.position.clone();
     const startQuaternion = camera.quaternion.clone();
-    const lerp = (start: number, end: number, alpha: number) => start + (end - start) * alpha;
+    
+    // Easing function for smoother animation
+    const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+    
     const update = () => {
       if (this.disposed) return;
       const elapsed = Date.now() - startTime;
       const alpha = Math.min(elapsed / duration, 1);
-      camera.position.x = lerp(startPosition.x, targetPosition.x, alpha);
-      camera.position.y = lerp(startPosition.y, targetPosition.y, alpha);
-      camera.position.z = lerp(startPosition.z, targetPosition.z, alpha);
-      camera.quaternion.copy(startQuaternion).slerp(targetQuaternion, alpha);
-      camera.lookAt(new THREE.Vector3(0, 0, 0));
+      const easedAlpha = easeInOutCubic(alpha);
+      
+      camera.position.lerpVectors(startPosition, targetPosition, easedAlpha);
+      camera.quaternion.slerpQuaternions(startQuaternion, targetQuaternion, easedAlpha);
       camera.updateProjectionMatrix();
+      
       if (alpha < 1) requestAnimationFrame(update);
     };
     update();
@@ -1089,8 +1289,24 @@ export class WarningViewerEngine {
 
   private animate(): void {
     if (this.disposed) return;
+    
+    // Throttle rendering to 60fps (16.67ms per frame)
+    if (this.renderThrottleId !== null) {
+      this.rafId = requestAnimationFrame(() => this.animate());
+      return;
+    }
+    
+    this.renderThrottleId = window.setTimeout(() => {
+      this.renderThrottleId = null;
+    }, 16.67); // ~60fps
+    
     this.rafId = requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
+    
+    // Update controls if damping is enabled
+    if (this.controls.enableDamping) {
+      this.controls.update();
+    }
   }
 
   private startResizeObserver(): void {
@@ -1108,5 +1324,98 @@ export class WarningViewerEngine {
   private stopResizeObserver(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+  }
+
+  private isMobileDevice(): boolean {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (typeof window !== 'undefined' && window.innerWidth < 768);
+  }
+
+  private getDevicePerformanceSettings(): { maxPixelRatio: number; powerPreference: string; qualityLevel: 'low' | 'medium' | 'high' } {
+    const isMobile = this.isMobileDevice();
+    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+    
+    if (isMobile || isLowEndDevice) {
+      return {
+        maxPixelRatio: Math.min(window.devicePixelRatio, 1.5),
+        powerPreference: "low-power",
+        qualityLevel: "low"
+      };
+    }
+    
+    return {
+      maxPixelRatio: window.devicePixelRatio,
+      powerPreference: "high-performance",
+      qualityLevel: "high"
+    };
+  }
+
+  // Object pooling methods
+  private getObjectFromPool<T>(pool: T[], createFn: () => T): T {
+    return pool.length > 0 ? pool.pop()! : createFn();
+  }
+
+  private returnObjectToPool<T>(pool: T[], obj: T, resetFn?: (obj: T) => void): void {
+    if (resetFn) resetFn(obj);
+    pool.push(obj);
+  }
+
+  private createPooledGeometry(): THREE.BufferGeometry {
+    return this.getObjectFromPool(this.geometryPool, () => new THREE.BufferGeometry());
+  }
+
+  private createPooledMaterial(properties: THREE.MaterialParameters = {}): THREE.Material {
+    return this.getObjectFromPool(this.materialPool, () => new THREE.MeshBasicMaterial(properties));
+  }
+
+  private createPooledTexture(): THREE.Texture {
+    return this.getObjectFromPool(this.texturePool, () => new THREE.Texture());
+  }
+
+  private createPooledMesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh {
+    const mesh = this.getObjectFromPool(
+      this.meshPool,
+      () => new THREE.Mesh(geometry, material)
+    ) as THREE.Mesh;
+    mesh.geometry = geometry;
+    mesh.material = material;
+    return mesh;
+  }
+
+  private disposePooledObjects(): void {
+    // Dispose all pooled objects
+    this.geometryPool.forEach(geometry => geometry.dispose());
+    this.materialPool.forEach(material => material.dispose());
+    this.texturePool.forEach(texture => texture.dispose());
+    
+    // Clear pools
+    this.geometryPool.length = 0;
+    this.materialPool.length = 0;
+    this.texturePool.length = 0;
+    this.meshPool.length = 0;
+  }
+
+  private isMobileDevice(): boolean {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (typeof window !== 'undefined' && window.innerWidth < 768);
+  }
+
+  private getDevicePerformanceSettings(): { maxPixelRatio: number; powerPreference: string; qualityLevel: 'low' | 'medium' | 'high' } {
+    const isMobile = this.isMobileDevice();
+    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+    
+    if (isMobile || isLowEndDevice) {
+      return {
+        maxPixelRatio: Math.min(window.devicePixelRatio, 1.5),
+        powerPreference: "low-power",
+        qualityLevel: "low"
+      };
+    }
+    
+    return {
+      maxPixelRatio: window.devicePixelRatio,
+      powerPreference: "high-performance",
+      qualityLevel: "high"
+    };
   }
 }
