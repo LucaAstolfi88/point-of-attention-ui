@@ -8,9 +8,9 @@
     "test": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox"
   },
   "dependencies": {
-    "@angular/common": "~17.1.0",
-    "@angular/compiler": "~17.1.0",
-    "@angular/core": "~17.1.0",
+    "@angular/common": "~20.3.34",
+    "@angular/compiler": "~20.3.28",
+    "@angular/core": "~20.3.28",
     "@angular/platform-browser": "~17.1.0",
     "@angular/platform-browser-dynamic": "~17.1.0",
     "@point-of-attention-ui/angular": "1.0.0",
@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "~17.1.0",
-    "@angular/cli": "~17.1.0",
+    "@angular/cli": "~22.3.0",
     "@angular/compiler-cli": "~17.1.0",
     "@types/jasmine": "~5.1.4",
     "jasmine-core": "~5.1.2",
