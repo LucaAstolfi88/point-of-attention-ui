@@ -195,6 +195,8 @@ setHeatMap(enabled: boolean): void
 ```
 Enable or disable the heat map visualization.
 
+While enabled, the heat map **replaces** the defect markers (decal, leader line and letter label) instead of overlapping them. Disabling it restores the markers, respecting part visibility.
+
 #### Parameters
 - `enabled`: Whether to show the heat map
 

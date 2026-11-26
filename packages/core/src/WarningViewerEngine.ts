@@ -375,13 +375,6 @@ export class WarningViewerEngine {
     this.componentGroup.traverse(obj => {
       if ((obj as THREE.Mesh).isMesh && obj.name === meshName) {
         obj.visible = visible;
-        this.renderedDefects
-          .filter(d => d.defect.meshName === meshName)
-          .forEach(d => {
-            d.decal.visible = visible;
-            d.line.visible = visible;
-            d.label.visible = visible;
-          });
       }
     });
   }
@@ -476,6 +469,7 @@ export class WarningViewerEngine {
 
   setHeatMap(enabled: boolean): void {
     this.heatMapMode = enabled;
+    this.syncMarkerVisibility();
     this.applyHeatMap();
   }
 
@@ -791,6 +785,27 @@ export class WarningViewerEngine {
         obj.visible = map.get(obj.name)!;
       }
     });
+    this.syncMarkerVisibility();
+    this.applyHeatMap();
+  }
+
+  /**
+   * Markers (decal, leader line, letter label) are hidden while the heat map
+   * is active and follow the visibility of their part otherwise. The heat map
+   * replaces them rather than overlapping them.
+   */
+  private syncMarkerVisibility(): void {
+    this.renderedDefects.forEach(d => {
+      const visible = this.isMarkerVisible(d.defect.meshName);
+      d.decal.visible = visible;
+      d.line.visible = visible;
+      d.label.visible = visible;
+    });
+  }
+
+  private isMarkerVisible(meshName?: string): boolean {
+    if (this.heatMapMode) return false;
+    return this.findMeshByName(meshName)?.visible ?? true;
   }
 
   private findMeshByName(name?: string): THREE.Mesh | null {
@@ -863,19 +878,18 @@ export class WarningViewerEngine {
     if (!this.componentGroup) return;
     this.defects.forEach(defect => {
       const mesh = this.findMeshByName(defect.meshName);
-      if (!mesh || !defect.position) return;
+      if (!mesh || !mesh.visible || !defect.position) return;
       const position = new THREE.Vector3(defect.position.x, defect.position.y, defect.position.z);
       const orientation = defect.orientation
         ? new THREE.Euler(defect.orientation.x, defect.orientation.y, defect.orientation.z)
         : new THREE.Euler();
-      const size = new THREE.Vector3().setScalar(this.modelSize * 0.16);
+      const size = new THREE.Vector3().setScalar(this.modelSize * 0.3);
       const material = new THREE.MeshBasicMaterial({
         map: this.createHeatMapTexture(),
         transparent: true,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -6,
-        blending: THREE.AdditiveBlending,
       });
       const decal = new THREE.Mesh(new DecalGeometry(mesh, position, orientation, size), material);
       decal.renderOrder = 2;
@@ -891,10 +905,11 @@ export class WarningViewerEngine {
     canvas.height = size;
     const context = canvas.getContext('2d')!;
     const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    gradient.addColorStop(0, 'rgba(255, 45, 45, 0.9)');
-    gradient.addColorStop(0.32, 'rgba(255, 120, 30, 0.65)');
-    gradient.addColorStop(0.68, 'rgba(255, 220, 30, 0.2)');
-    gradient.addColorStop(1, 'rgba(255, 220, 30, 0)');
+    gradient.addColorStop(0, 'rgba(255, 40, 40, 0.95)');
+    gradient.addColorStop(0.3, 'rgba(255, 110, 30, 0.8)');
+    gradient.addColorStop(0.62, 'rgba(255, 200, 40, 0.42)');
+    gradient.addColorStop(0.85, 'rgba(255, 230, 60, 0.12)');
+    gradient.addColorStop(1, 'rgba(255, 230, 60, 0)');
     context.fillStyle = gradient;
     context.fillRect(0, 0, size, size);
     const texture = new THREE.CanvasTexture(canvas);
@@ -978,6 +993,10 @@ export class WarningViewerEngine {
         : this.camera.quaternion.clone(),
     };
     this.scene.add(label);
+    const markerVisible = !this.heatMapMode && mesh.visible;
+    decal.visible = markerVisible;
+    line.visible = markerVisible;
+    label.visible = markerVisible;
     this.renderedDefects.push({ defect, decal, line, label });
   }
 
