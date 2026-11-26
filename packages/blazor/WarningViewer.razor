@@ -13,14 +13,22 @@
             <h3 class="warning-modal-title">@Locale?.ModalTitle</h3>
             @if (!string.IsNullOrEmpty(_selection.MeshName))
             {
-                <p>@Locale?.ModalPartLabel @_selection.MeshName</p>
+                <small class="warning-modal-subtitle">@Locale?.ModalPartLabel @_selection.MeshName</small>
             }
-            <div class="warning-modal-options">
+            <ul class="warning-modal-options">
                 @foreach (var option in _selection.Options)
                 {
-                    <button type="button" @onclick="() => ConfirmSelectionAsync(option)">@option.Label</button>
+                    <li class="warning-modal-option">
+                        <button type="button" class="warning-modal-option-btn" @onclick="() => ConfirmSelectionAsync(option)">
+                            @if (!string.IsNullOrEmpty(option.Severity))
+                            {
+                                <span class="warning-modal-severity-dot warning-modal-severity-dot--@option.Severity"></span>
+                            }
+                            @option.Label
+                        </button>
+                    </li>
                 }
-            </div>
+            </ul>
             <button type="button" class="warning-modal-cancel" @onclick="CancelSelectionAsync">
                 @Locale?.ModalCancel
             </button>
