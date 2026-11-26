@@ -1,0 +1,59 @@
+name: Publish to GitHub Packages
+
+# Publishes @point-of-attention-ui/core to the GitHub npm registry.
+# Trigger: push a tag named core-vX.Y.Z (e.g. core-v1.0.0) or run the workflow manually.
+# Note: the tag must NOT match v*.*.* — that tag pattern triggers publish.yml (npmjs.org and NuGet).
+
+on:
+  push:
+    tags: ['core-v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish-github-packages:
+    name: Publish @lucaastolfi88/point-of-attention-ui-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@lucaastolfi88'
+
+      - name: Clean install dependencies to avoid Rollup optional dependency issues
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --prefer-offline --no-audit --no-fund
+
+      - name: Build and test core
+        run: |
+          npm -w packages/core run build
+          npm -w packages/core run build:umd
+          npm -w packages/core run test
+
+      - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/core-v')
+        run: |
+          TAG_VERSION=${GITHUB_REF_NAME#core-v}
+          PKG_VERSION=$(node -p "require('./packages/core/package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag version $TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Set GitHub Packages scope
+        # GitHub Packages requires the npm scope to match the repository owner.
+        working-directory: packages/core
+        run: npm pkg set name=@lucaastolfi88/point-of-attention-ui-core
+
+      - name: Publish to GitHub Packages
+        working-directory: packages/core
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
